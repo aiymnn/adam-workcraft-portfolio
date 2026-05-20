@@ -26,10 +26,78 @@ const SERVICES = [
   'Graphic Design',
 ];
 
+const TOOLS = [
+  { name: 'Photoshop', src: '/photoshop-logo.png' },
+  { name: 'Lightroom', src: '/photoshop-logo.png' },
+  { name: 'Premiere Pro', src: '/photoshop-logo.png' },
+  { name: 'After Effects', src: '/photoshop-logo.png' },
+  { name: 'Illustrator', src: '/photoshop-logo.png' },
+  { name: 'DaVinci Resolve', src: '/photoshop-logo.png' },
+  { name: 'Final Cut Pro', src: '/photoshop-logo.png' },
+  { name: 'Canva', src: '/photoshop-logo.png' },
+  { name: 'CapCut', src: '/photoshop-logo.png' },
+  { name: 'Blender', src: '/photoshop-logo.png' },
+  { name: 'Figma', src: '/photoshop-logo.png' },
+  { name: 'Audition', src: '/photoshop-logo.png' },
+  { name: 'Capture One', src: '/photoshop-logo.png' },
+  { name: 'Pro Tools', src: '/photoshop-logo.png' },
+  { name: 'Logic Pro', src: '/photoshop-logo.png' },
+  { name: 'Unity', src: '/photoshop-logo.png' },
+  { name: 'Maya', src: '/photoshop-logo.png' },
+  { name: 'Cinema 4D', src: '/photoshop-logo.png' },
+  { name: 'CorelDRAW', src: '/photoshop-logo.png' },
+  { name: 'Sketch', src: '/photoshop-logo.png' },
+  { name: 'Affinity', src: '/photoshop-logo.png' },
+  { name: 'Luminar', src: '/photoshop-logo.png' },
+  { name: 'Photomatix', src: '/photoshop-logo.png' },
+  { name: 'Houdini', src: '/photoshop-logo.png' },
+];
+
+const ROW_LAYOUTS: { scales: [number, number, number, number, number, number]; opacities: [number, number, number, number, number, number] }[] = [
+  { scales: [0.25, 0.4, 1, 0.9, 0.35, 0.15], opacities: [0.02, 0.06, 0.3, 0.25, 0.05, 0.01] },
+  { scales: [0.9, 0.75, 0.55, 1, 0.4, 0.2], opacities: [0.25, 0.18, 0.08, 0.3, 0.04, 0.02] },
+  { scales: [0.3, 0.6, 1, 0.7, 0.5, 0.25], opacities: [0.03, 0.1, 0.3, 0.15, 0.07, 0.02] },
+  { scales: [1, 0.8, 0.6, 0.45, 0.3, 0.1], opacities: [0.3, 0.2, 0.12, 0.06, 0.03, 0.01] },
+];
+
+const rows: { name: string; src: string }[][] = [];
+for (let i = 0; i < TOOLS.length; i += 6) {
+  rows.push(TOOLS.slice(i, i + 6));
+}
+const STRIP_CONTENT = [...rows, ...rows, ...rows, ...rows, ...rows, ...rows];
+
+function ToolStrip({ stripRef }: { stripRef: React.RefObject<HTMLDivElement | null> }) {
+  return (
+    <div
+      ref={stripRef}
+      className="flex flex-col gap-16 md:gap-20"
+    >
+      {STRIP_CONTENT.map((row, ri) => {
+        const cfg = ROW_LAYOUTS[ri % ROW_LAYOUTS.length];
+        return (
+          <div key={ri} className="flex justify-center gap-12 md:gap-16">
+            {row.map((tool, ci) => (
+              <img
+                key={tool.name + ri + ci}
+                src={tool.src}
+                alt={tool.name}
+                className="size-16 md:size-20"
+                style={{ transform: `scale(${cfg.scales[ci]})`, opacity: cfg.opacities[ci] }}
+                loading="lazy"
+              />
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function About() {
   const { t } = useLanguageTheme();
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
   const statRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [animated, setAnimated] = useState<Set<number>>(new Set());
 
@@ -73,13 +141,43 @@ export default function About() {
     return () => ctx.revert();
   }, []);
 
+  useEffect(() => {
+    if (!stripRef.current) return;
+    const strip = stripRef.current;
+    const children = strip.children;
+    if (children.length < 5) return;
+    const h =
+      (children[4] as HTMLElement).offsetTop - (children[0] as HTMLElement).offsetTop;
+    const ctx = gsap.context(() => {
+      gsap.to(strip, {
+        y: -h,
+        duration: 10,
+        repeat: -1,
+        ease: 'none',
+      });
+    });
+    return () => ctx.revert();
+  }, []);
+
   return (
     <section
       id="about"
       ref={sectionRef}
-      className="bg-[#1c1917]/60 px-6 py-24 text-[var(--text)] md:px-12 md:py-48"
+      className="relative overflow-hidden bg-[#1c1917]/60 px-6 py-24 text-[var(--text)] md:px-12 md:py-48"
     >
-      <div ref={contentRef} className="mx-auto max-w-4xl space-y-6 md:space-y-8">
+      <div
+        className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+        style={{
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%)',
+        }}
+      >
+        <div style={{ transform: 'translateX(40%) rotate(30deg)' }}>
+          <ToolStrip stripRef={stripRef} />
+        </div>
+      </div>
+
+      <div ref={contentRef} className="relative z-10 mx-auto max-w-4xl space-y-6 md:space-y-8">
         <p className="text-xs tracking-[0.2em] uppercase text-amber-200/60 md:text-sm">
           {t.about.label}
         </p>
