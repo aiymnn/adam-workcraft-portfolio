@@ -109,7 +109,7 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: { items: Revie
       >
         <button
           onClick={handleClose}
-          className="absolute -right-3 -top-3 z-20 flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-sm text-[var(--text)] md:size-9"
+          className="absolute -right-3 -top-3 z-20 flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-sm text-[var(--text)] md:size-9"
         >
           &#x2715;
         </button>

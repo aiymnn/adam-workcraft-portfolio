@@ -81,12 +81,12 @@ const COLLECTIONS: CollectionItem[] = [
 ];
 
 const LAYOUT_CLASSES = [
-  'lg:col-span-1 lg:row-span-2', // 0 - tall left
-  '',                              // 1 - normal
-  '',                              // 2 - normal
-  '',                              // 3 - normal
-  '',                              // 4 - normal
-  'lg:col-span-3',                 // 5 - full width banner
+  'md:row-span-2 lg:col-span-1 lg:row-span-2', // 0 - tall
+  '',                                            // 1
+  '',                                            // 2
+  '',                                            // 3
+  '',                                            // 4
+  'md:col-span-2 lg:col-span-3',                 // 5 - full width
 ];
 
 interface GalleryProps {

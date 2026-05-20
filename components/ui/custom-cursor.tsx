@@ -62,7 +62,7 @@ export default function CustomCursor() {
   }, []);
 
   return (
-    <>
+    <div className="hidden lg:block">
       <div
         ref={cursorRef}
         className="pointer-events-none fixed left-0 top-0 z-[9999] size-3 rounded-full bg-amber-200 will-change-transform"
@@ -71,6 +71,6 @@ export default function CustomCursor() {
         ref={followerRef}
         className="pointer-events-none fixed left-0 top-0 z-[9998] size-8 rounded-full border border-amber-200/30 opacity-15 will-change-transform"
       />
-    </>
+    </div>
   );
 }

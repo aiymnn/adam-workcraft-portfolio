@@ -53,7 +53,7 @@ export default function Hero() {
     >
       <div className="absolute inset-0 -z-10 h-[150%] w-[150%] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/40 via-stone-950/80 to-transparent blur-3xl" />
 
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col-reverse items-center gap-12 md:flex-row">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col-reverse items-center gap-8 md:gap-12 md:flex-row">
         <div className="flex-1">
           <p className="mb-4 text-xs tracking-[0.3em] uppercase text-amber-200/60 md:text-sm">
             {t.hero.name}

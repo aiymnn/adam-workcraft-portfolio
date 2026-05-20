@@ -34,6 +34,11 @@ export default function Navbar() {
   };
 
   useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menuOpen]);
+
+  useEffect(() => {
     if (menuOpen && overlayRef.current) {
       const ctx = gsap.context(() => {
         gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' });
