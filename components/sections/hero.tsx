@@ -11,6 +11,7 @@ export default function Hero() {
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const ctaRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
+  const spinRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -40,6 +41,10 @@ export default function Hero() {
         { scale: 1, opacity: 1, duration: 1.2 },
         '-=1',
       );
+
+      if (spinRef.current) {
+        gsap.to(spinRef.current, { rotate: 360, duration: 12, repeat: -1, ease: 'none' });
+      }
     }, containerRef);
 
     return () => ctx.revert();
@@ -90,14 +95,20 @@ export default function Hero() {
           </div>
         </div>
 
-        <div ref={imageRef} className="flex-1">
-          <div className="relative mx-auto aspect-[3/4] max-w-sm overflow-hidden rounded-2xl border border-[var(--border)] md:max-w-md">
+        <div ref={imageRef} className="flex flex-1 items-center justify-center">
+          <div className="relative size-56 md:size-72">
+            <div ref={spinRef} className="pointer-events-none absolute -inset-5 max-md:-inset-3" style={{ willChange: 'transform' }}>
+              <svg viewBox="0 0 120 120" className="size-full">
+                <circle cx="60" cy="60" r="57" fill="none" stroke="var(--text-muted)" strokeWidth="1" pathLength="100" strokeDasharray="5 2.5 2.5 2.5" />
+              </svg>
+            </div>
             <img
-              src="https://images.unsplash.com/photo-1537907690979-ee8e01276184?q=80&w=800"
+              src="/person-2.png"
               alt={t.hero.name}
-              className="size-full object-cover"
+              className="size-full rounded-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0a09]/60 to-transparent" />
+            <div className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(ellipse_at_50%_20%,transparent_50%,#0c0a09_95%)]" />
+            <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-[#0c0a09]/80 via-[#0c0a09]/20 to-transparent/0" />
           </div>
         </div>
       </div>
