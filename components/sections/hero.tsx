@@ -96,7 +96,7 @@ export default function Hero() {
         </div>
 
         <div ref={imageRef} className="flex flex-1 items-center justify-center">
-          <div className="relative size-56 md:size-72">
+          <div className="relative size-64 md:size-80">
             <div ref={spinRef} className="pointer-events-none absolute -inset-5 max-md:-inset-3" style={{ willChange: 'transform' }}>
               <svg viewBox="0 0 120 120" className="size-full">
                 <circle cx="60" cy="60" r="57" fill="none" stroke="var(--text-muted)" strokeWidth="1" pathLength="100" strokeDasharray="5 2.5 2.5 2.5" />
@@ -107,8 +107,7 @@ export default function Hero() {
               alt={t.hero.name}
               className="size-full rounded-full object-cover"
             />
-            <div className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(ellipse_at_50%_20%,transparent_50%,#0c0a09_95%)]" />
-            <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-[#0c0a09]/80 via-[#0c0a09]/20 to-transparent/0" />
+            <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-[#0c0a09] via-[#0c0a09]/70 via-35% to-transparent" />
           </div>
         </div>
       </div>
