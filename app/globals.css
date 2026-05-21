@@ -19,18 +19,6 @@
   --bg-end: #0c0a09;
 }
 
-.light {
-  --text: #1c1917;
-  --text-muted: #57534e;
-  --text-dim: #a8a29e;
-  --border: #d6d3d1;
-  --button: #e7e5e4;
-  --button-hover: #d6d3d1;
-  --bg-start: #e7e5e4;
-  --bg-mid: #f5f5f0;
-  --bg-end: #fafaf9;
-}
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

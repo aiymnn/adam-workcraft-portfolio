@@ -13,7 +13,7 @@ const LINKS = [
 ];
 
 export default function Navbar() {
-  const { language, theme, t, setLanguage, setTheme } = useLanguageTheme();
+  const { language, t, setLanguage } = useLanguageTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const linksRef = useRef<(HTMLAnchorElement | null)[]>([]);
@@ -27,11 +27,6 @@ export default function Navbar() {
   };
 
   const cycleLanguage = () => setLanguage(language === 'en' ? 'bm' : 'en');
-  const cycleTheme = () => {
-    const modes: Array<'dark' | 'light' | 'system'> = ['dark', 'light', 'system'];
-    const idx = modes.indexOf(theme);
-    setTheme(modes[(idx + 1) % modes.length]);
-  };
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? 'hidden' : '';
@@ -60,7 +55,6 @@ export default function Navbar() {
     }
   }, [menuOpen]);
 
-  const themeIcon = theme === 'dark' ? '🌙' : theme === 'light' ? '☀️' : '💻';
   const langLabel = language === 'en' ? 'EN' : 'BM';
 
   return (
@@ -83,12 +77,6 @@ export default function Navbar() {
             className="rounded-full px-3 py-1.5 text-xs font-semibold tracking-wider text-amber-200/80 transition-colors hover:bg-stone-800/60"
           >
             {langLabel}
-          </button>
-          <button
-            onClick={cycleTheme}
-            className="rounded-full px-2 py-1.5 text-sm transition-colors hover:bg-stone-800/60"
-          >
-            {themeIcon}
           </button>
         </div>
       </nav>
@@ -136,12 +124,6 @@ export default function Navbar() {
               className="rounded-full border border-[var(--border)] px-5 py-2 text-sm font-semibold tracking-wider text-amber-200/80 transition-colors hover:bg-stone-800/60"
             >
               {langLabel}
-            </button>
-            <button
-              onClick={cycleTheme}
-              className="rounded-full border border-[var(--border)] px-5 py-2 text-sm transition-colors hover:bg-stone-800/60"
-            >
-              {themeIcon} {theme}
             </button>
           </div>
         </div>

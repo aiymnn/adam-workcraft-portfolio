@@ -3,7 +3,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 
 type Language = 'en' | 'bm';
-type ThemeMode = 'dark' | 'light' | 'system';
 
 interface Dict {
   nav: Record<'home' | 'story' | 'gallery' | 'reviews' | 'connect', string>;
@@ -39,17 +38,14 @@ const dictionaries = { en, bm };
 
 interface LanguageThemeContextType {
   language: Language;
-  theme: ThemeMode;
   t: Dict;
   setLanguage: (lang: Language) => void;
-  setTheme: (theme: ThemeMode) => void;
 }
 
 const LanguageThemeContext = createContext<LanguageThemeContextType | null>(null);
 
 export function LanguageThemeProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>('en');
-  const [theme, setThemeState] = useState<ThemeMode>('system');
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
@@ -58,41 +54,15 @@ export function LanguageThemeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const setTheme = useCallback((mode: ThemeMode) => {
-    setThemeState(mode);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', mode);
-    }
-  }, []);
-
   useEffect(() => {
     const storedLang = localStorage.getItem('lang') as Language | null;
     if (storedLang) setLanguageState(storedLang);
-    const storedTheme = localStorage.getItem('theme') as ThemeMode | null;
-    if (storedTheme) setThemeState(storedTheme);
   }, []);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const apply = (isDark: boolean) => {
-      if (isDark) root.classList.remove('light');
-      else root.classList.add('light');
-    };
-
-    if (theme === 'dark') { apply(true); return; }
-    if (theme === 'light') { apply(false); return; }
-
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    apply(mq.matches);
-    const handler = (e: MediaQueryListEvent) => apply(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, [theme]);
 
   const t = dictionaries[language];
 
   return (
-    <LanguageThemeContext.Provider value={{ language, theme, t, setLanguage, setTheme }}>
+    <LanguageThemeContext.Provider value={{ language, t, setLanguage }}>
       {children}
     </LanguageThemeContext.Provider>
   );
