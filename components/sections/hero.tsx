@@ -56,7 +56,7 @@ export default function Hero() {
       ref={containerRef}
       className="relative z-10 min-h-screen overflow-hidden bg-black/40 px-6 py-24 text-[var(--text)] md:px-12 md:py-0"
     >
-      <div className="absolute inset-0 -z-10 h-[150%] w-[150%] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/40 via-stone-950/80 to-transparent blur-3xl" />
+      <div className="absolute inset-0 -z-10 h-[150vh] w-[150vw] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/40 via-stone-950/80 to-transparent blur-3xl" />
 
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col-reverse items-center gap-8 md:gap-12 md:flex-row">
         <div className="flex-1">
@@ -81,14 +81,14 @@ export default function Hero() {
           <div ref={ctaRef} className="mt-8 flex flex-wrap gap-4 md:mt-10">
             <a
               href="#gallery"
-              className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[var(--button-hover)] bg-[var(--button)] px-8 py-3 text-sm font-medium text-amber-200/90 hover:border-amber-700/50 hover:bg-[var(--button-hover)] md:px-10 md:py-4 md:text-base"
+              className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[var(--button-hover)] bg-[var(--button)] px-8 py-4 text-sm font-medium text-amber-200/90 hover:border-amber-700/50 hover:bg-[var(--button-hover)] md:px-10 md:py-4 md:text-base"
             >
               {t.hero.viewWork}
               <span className="text-amber-200/60">&rarr;</span>
             </a>
             <a
               href="#connect"
-              className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[var(--border)] px-8 py-3 text-sm font-medium text-[var(--text-muted)] hover:border-[var(--button-hover)] hover:text-[var(--text)] md:px-10 md:py-4 md:text-base"
+              className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[var(--border)] px-8 py-4 text-sm font-medium text-[var(--text-muted)] hover:border-[var(--button-hover)] hover:text-[var(--text)] md:px-10 md:py-4 md:text-base"
             >
               {t.hero.getInTouch}
             </a>

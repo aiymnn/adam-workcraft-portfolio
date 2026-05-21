@@ -134,7 +134,7 @@ export default function LightboxModal({ isOpen, collection, onClose }: LightboxM
       >
         <button
           onClick={handleClose}
-          className="absolute right-4 top-4 z-[60] flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-stone-900/60 text-sm text-[var(--text)] backdrop-blur-md transition-transform active:scale-95 md:right-8 md:top-8 md:size-11"
+          className="absolute right-4 top-4 z-[60] flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-stone-900/60 text-sm text-[var(--text)] backdrop-blur-md transition-transform active:scale-95 md:right-8 md:top-8 md:size-11"
         >
           &#x2715;
         </button>
@@ -157,7 +157,7 @@ export default function LightboxModal({ isOpen, collection, onClose }: LightboxM
                   else el.requestFullscreen();
                 }
               }}
-              className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded border border-[var(--border)] bg-black/60 text-[var(--text-muted)] transition-colors hover:text-white md:size-8"
+              className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded border border-[var(--border)] bg-black/60 text-[var(--text-muted)] transition-colors hover:text-white md:size-9"
               title="Fullscreen"
             >
               <svg className="size-5 md:size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -184,7 +184,7 @@ export default function LightboxModal({ isOpen, collection, onClose }: LightboxM
             {total > 1 && (
               <button
                 onClick={() => navigate('prev')}
-                className="absolute -left-3 z-10 flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] transition-colors hover:border-amber-700/50 hover:text-amber-200/80 md:-left-6 md:size-12"
+                className="absolute -left-3 z-10 flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] transition-colors hover:border-amber-700/50 hover:text-amber-200/80 md:-left-6 md:size-12"
               >
                 <svg className="size-4 md:size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -205,7 +205,7 @@ export default function LightboxModal({ isOpen, collection, onClose }: LightboxM
                     else el.requestFullscreen();
                   }
                 }}
-                className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded border border-[var(--border)] bg-black/60 text-[var(--text-muted)] transition-colors hover:text-white md:size-8"
+                className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded border border-[var(--border)] bg-black/60 text-[var(--text-muted)] transition-colors hover:text-white md:size-9"
                 title="Fullscreen"
               >
                 <svg className="size-5 md:size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -216,7 +216,7 @@ export default function LightboxModal({ isOpen, collection, onClose }: LightboxM
             {total > 1 && (
               <button
                 onClick={() => navigate('next')}
-                className="absolute -right-3 z-10 flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] transition-colors hover:border-amber-700/50 hover:text-amber-200/80 md:-right-6 md:size-12"
+                className="absolute -right-3 z-10 flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] transition-colors hover:border-amber-700/50 hover:text-amber-200/80 md:-right-6 md:size-12"
               >
                 <svg className="size-4 md:size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
