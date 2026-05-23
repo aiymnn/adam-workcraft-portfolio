@@ -5,6 +5,9 @@
   --color-foreground: #f5f5f4;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --animate-fade-in: fadeIn 0.4s ease-out;
+  --animate-shake: shake 0.42s ease-in-out;
+  --animate-popover-in: popoverIn 0.15s ease-out;
 }
 
 :root {
@@ -20,13 +23,26 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popoverIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 @keyframes fadeOut {
   from { opacity: 1; }
   to { opacity: 0; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
 }
 
 html {

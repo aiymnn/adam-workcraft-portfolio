@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import gsap from 'gsap';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,8 +12,6 @@ const ADMIN_CREDENTIALS = { username: 'admin', password: 'admin123' };
 export default function AdminLogin() {
   const router = useRouter();
   const { theme, toggleTheme } = useAdminTheme();
-  const cardRef = useRef<HTMLDivElement>(null);
-  const errorRef = useRef<HTMLParagraphElement>(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -24,13 +21,11 @@ export default function AdminLogin() {
       const authed = localStorage.getItem('admin_auth');
       if (authed === 'true') {
         router.replace('/admin/dashboard');
-        return;
       }
     }
-    if (cardRef.current) {
-      gsap.fromTo(cardRef.current, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' });
-    }
   }, [router]);
+
+  const [shaking, setShaking] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,16 +38,8 @@ export default function AdminLogin() {
     }
 
     setError('Invalid username or password');
-    if (errorRef.current && cardRef.current) {
-      gsap.timeline()
-        .to(cardRef.current, { x: -8, duration: 0.07 })
-        .to(cardRef.current, { x: 8, duration: 0.07 })
-        .to(cardRef.current, { x: -6, duration: 0.07 })
-        .to(cardRef.current, { x: 6, duration: 0.07 })
-        .to(cardRef.current, { x: -3, duration: 0.07 })
-        .to(cardRef.current, { x: 3, duration: 0.07 })
-        .to(cardRef.current, { x: 0, duration: 0.07 });
-    }
+    setShaking(true);
+    setTimeout(() => setShaking(false), 420);
   };
 
   return (
@@ -72,7 +59,7 @@ export default function AdminLogin() {
           </svg>
         )}
       </button>
-      <div ref={cardRef} className="w-full max-w-sm" style={{ willChange: 'opacity, transform' }}>
+      <div className={`w-full max-w-sm ${shaking ? 'animate-shake' : 'animate-fade-in'}`}>
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-xl">Admin Sign In</CardTitle>
@@ -100,7 +87,7 @@ export default function AdminLogin() {
                 />
               </div>
               {error && (
-                <p ref={errorRef} className="text-sm text-red-400">
+                <p className="text-sm text-red-400">
                   {error}
                 </p>
               )}

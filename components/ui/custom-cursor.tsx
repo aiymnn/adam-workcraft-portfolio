@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import gsap from 'gsap';
 
 const INTERACTIVE_SELECTOR = 'a, button, input, textarea, [data-cursor]';
 
 export default function CustomCursor() {
+  const pathname = usePathname();
   const cursorRef = useRef<HTMLDivElement>(null);
   const followerRef = useRef<HTMLDivElement>(null);
 
@@ -60,6 +62,8 @@ export default function CustomCursor() {
       observer.disconnect();
     };
   }, []);
+
+  if (pathname.startsWith('/admin')) return null;
 
   return (
     <div className="hidden lg:block">

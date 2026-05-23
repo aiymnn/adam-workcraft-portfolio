@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import gsap from 'gsap';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar } from '@/components/ui/avatar';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
+import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
 
 const SOCIAL_PLATFORMS = [
   { id: 'x', label: 'X (Twitter)' },
@@ -31,8 +31,7 @@ const DUMMY_DATA = {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [activeSection] = useState('basic-info');
+
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -47,13 +46,6 @@ export default function AdminDashboard() {
         router.replace('/admin/login');
         return;
       }
-    }
-    if (contentRef.current) {
-      gsap.fromTo(
-        contentRef.current.children,
-        { opacity: 0, y: 16 },
-        { opacity: 1, y: 0, duration: 0.4, stagger: 0.08, ease: 'power3.out' },
-      );
     }
   }, [router]);
 
@@ -108,15 +100,18 @@ export default function AdminDashboard() {
         {isMobile ? (
           <MobileSidebar
             open={mobileSidebarOpen}
-            activeSection={activeSection}
             onClose={() => { setMobileSidebarOpen(false); document.body.style.overflow = ''; }}
           />
         ) : (
-          <DesktopSidebar expanded={sidebarExpanded} activeSection={activeSection} />
+          <DesktopSidebar expanded={sidebarExpanded} />
         )}
 
         <main className="flex-1 overflow-y-auto">
-          <div ref={contentRef} className="space-y-6 px-4 py-6 md:px-6 md:py-8">
+          <AdminPageShell>
+            <AdminPageHeader
+              title="Profile"
+              description="Manage your basic information and social links"
+            />
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-4">
@@ -171,7 +166,7 @@ export default function AdminDashboard() {
             <p className="text-center text-xs text-[var(--text-dim)]">
               Changes are local only — no backend connected
             </p>
-          </div>
+          </AdminPageShell>
         </main>
       </div>
     </div>
