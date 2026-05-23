@@ -272,6 +272,7 @@ export default function SchedulePage() {
     if (typeof window !== 'undefined') {
       const authed = localStorage.getItem('admin_auth');
       if (authed !== 'true') {
+        localStorage.setItem('admin_last_page', '/admin/schedule');
         router.replace('/admin/login');
         return;
       }

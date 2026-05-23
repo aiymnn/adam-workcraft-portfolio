@@ -20,7 +20,9 @@ export default function AdminLogin() {
     if (typeof window !== 'undefined') {
       const authed = localStorage.getItem('admin_auth');
       if (authed === 'true') {
-        router.replace('/admin/dashboard');
+        const lastPage = localStorage.getItem('admin_last_page');
+        localStorage.removeItem('admin_last_page');
+        router.replace(lastPage || '/admin/dashboard');
       }
     }
   }, [router]);
@@ -33,7 +35,9 @@ export default function AdminLogin() {
 
     if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
       localStorage.setItem('admin_auth', 'true');
-      router.push('/admin/dashboard');
+      const lastPage = localStorage.getItem('admin_last_page');
+      localStorage.removeItem('admin_last_page');
+      router.push(lastPage || '/admin/dashboard');
       return;
     }
 
