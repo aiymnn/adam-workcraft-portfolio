@@ -2,10 +2,10 @@
 
 import type { FormEvent } from 'react';
 import MagneticButton from '@/components/ui/magnetic-button';
-import { useLanguageTheme } from '@/context/language-theme-context';
+import { useLanguage } from '@/context/language-context';
 
 export default function Contact() {
-  const { t } = useLanguageTheme();
+  const { t } = useLanguage();
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useLanguageTheme } from '@/context/language-theme-context';
+import { useLanguage } from '@/context/language-context';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -188,7 +188,7 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: { items: Revie
 }
 
 export default function Feedback() {
-  const { t } = useLanguageTheme();
+  const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const [lightbox, setLightbox] = useState<{ items: ReviewMedia[]; index: number } | null>(null);
 

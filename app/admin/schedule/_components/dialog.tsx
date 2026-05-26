@@ -8,15 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { XIcon } from '@/components/shared/icons';
 import { format, parse } from 'date-fns';
-
-function XIcon() {
-  return (
-    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  );
-}
 
 function CalendarIconSm() {
   return (
@@ -51,14 +44,14 @@ const ScheduleDialog = memo(function ScheduleDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end bg-black/40 backdrop-blur-sm sm:items-center sm:justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="flex w-full flex-col rounded-t-xl border border-[var(--border)] bg-[var(--bg-mid)] shadow-2xl sm:mx-4 sm:max-w-md sm:rounded-xl"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col rounded-xl border border-[var(--border)] bg-[var(--bg-mid)] shadow-2xl sm:max-h-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4 shrink-0">
           <h3 className="text-sm font-semibold">
             {editingBooking ? 'Edit Booking' : 'New Booking'}
           </h3>
@@ -70,7 +63,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
           </button>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 min-h-0 sm:overflow-y-visible">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-[var(--text-muted)]">Date</label>
             <Popover open={dateOpen} onOpenChange={setDateOpen}>
@@ -199,7 +192,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
+        <div className="flex shrink-0 items-center justify-between border-t border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
           {editingBooking ? (
             <button
               onClick={() => onDelete(editingBooking.id)}

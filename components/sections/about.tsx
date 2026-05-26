@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import NumberFlow from '@number-flow/react';
-import { useLanguageTheme } from '@/context/language-theme-context';
+import { useLanguage } from '@/context/language-context';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -94,7 +94,7 @@ function ToolStrip({ stripRef }: { stripRef: React.RefObject<HTMLDivElement | nu
 }
 
 export default function About() {
-  const { t } = useLanguageTheme();
+  const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);

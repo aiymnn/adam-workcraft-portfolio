@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
-import { useLanguageTheme } from '@/context/language-theme-context';
+import { useLanguage } from '@/context/language-context';
 
 export default function Hero() {
-  const { t } = useLanguageTheme();
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);

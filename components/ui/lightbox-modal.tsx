@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
-import { useLanguageTheme } from '@/context/language-theme-context';
+import { useLanguage } from '@/context/language-context';
 
 interface CollectionItem {
   id: string;
@@ -21,7 +21,7 @@ interface LightboxModalProps {
 }
 
 export default function LightboxModal({ isOpen, collection, onClose }: LightboxModalProps) {
-  const { t } = useLanguageTheme();
+  const { t } = useLanguage();
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);

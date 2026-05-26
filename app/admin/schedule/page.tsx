@@ -3,55 +3,19 @@
 import { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addDays } from 'date-fns';
-import type { Booking, FormData } from './types';
-import { EMPTY_FORM } from './types';
+import type { Booking, FormData } from './_components/types';
+import { EMPTY_FORM } from './_components/types';
 import { Button } from '@/components/ui/button';
+import { PlusIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/icons';
+import { loadBookings, saveBookings, generateId } from '@/lib/services/bookings';
+import { isAuthenticated, setLastPage, logout } from '@/lib/services/auth';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
-import ScheduleDialog from './dialog';
-import RightPanel from './right-panel';
-
-const STORAGE_KEY = 'admin_bookings';
+import ScheduleDialog from './_components/dialog';
+import RightPanel from './_components/right-panel';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function PlusIcon() {
-  return (
-    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-    </svg>
-  );
-}
-
-function ChevronLeftIcon() {
-  return (
-    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-    </svg>
-  );
-}
-
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-function loadBookings(): Booking[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Booking[];
-  } catch {}
-  return [];
-}
 
 function makeDummyBookings(): Booking[] {
   const today = new Date();
@@ -73,12 +37,6 @@ function initBookings(): Booking[] {
   const dummies = makeDummyBookings();
   saveBookings(dummies);
   return dummies;
-}
-
-function saveBookings(bookings: Booking[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
-  } catch {}
 }
 
 interface CalendarGridProps {
@@ -266,13 +224,13 @@ export default function SchedulePage() {
   editingRef.current = editingBooking;
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [changingStatusId, setChangingStatusId] = useState<string | null>(null);
+  const [statusPendingConfirm, setStatusPendingConfirm] = useState<{ id: string; status: Booking['status'] } | null>(null);
   const [mobileTab, setMobileTab] = useState<'calendar' | 'bookings'>('calendar');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const authed = localStorage.getItem('admin_auth');
-      if (authed !== 'true') {
-        localStorage.setItem('admin_last_page', '/admin/schedule');
+      if (!isAuthenticated()) {
+        setLastPage('/admin/schedule');
         router.replace('/admin/login');
         return;
       }
@@ -335,7 +293,7 @@ export default function SchedulePage() {
   }, [isMobile, mobileSidebarOpen]);
 
   const handleSignOut = useCallback(() => {
-    localStorage.removeItem('admin_auth');
+    logout();
     router.push('/admin/login');
   }, [router]);
 
@@ -406,21 +364,29 @@ export default function SchedulePage() {
     closeDialog();
   }, [bookings, formData, editingBooking, selectedStr, closeDialog]);
 
-  const handleStatusChange = useCallback(
-    (id: string, status: Booking['status']) => {
-      setChangingStatusId(id);
-      setTimeout(() => setChangingStatusId(null), 500);
-      setBookings((prev) => {
-        const next = prev.map((b) => (b.id === id ? { ...b, status } : b));
-        saveBookings(next);
-        return next;
-      });
-      if (editingRef.current?.id === id) {
-        setEditingBooking((prev) => (prev ? { ...prev, status } : null));
-      }
-    },
-    [],
-  );
+  const handleRequestStatusChange = useCallback((id: string, status: Booking['status']) => {
+    setStatusPendingConfirm({ id, status });
+  }, []);
+
+  const confirmStatusChange = useCallback(() => {
+    if (!statusPendingConfirm) return;
+    const { id, status } = statusPendingConfirm;
+    setStatusPendingConfirm(null);
+    setChangingStatusId(id);
+    setTimeout(() => setChangingStatusId(null), 500);
+    setBookings((prev) => {
+      const next = prev.map((b) => (b.id === id ? { ...b, status } : b));
+      saveBookings(next);
+      return next;
+    });
+    if (editingRef.current?.id === id) {
+      setEditingBooking((prev) => (prev ? { ...prev, status } : null));
+    }
+  }, [statusPendingConfirm]);
+
+  const cancelStatusChange = useCallback(() => {
+    setStatusPendingConfirm(null);
+  }, []);
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -517,13 +483,43 @@ export default function SchedulePage() {
                   changingStatusId={changingStatusId}
                   onNewBooking={openNewBooking}
                   onEditBooking={openEditBooking}
-                  onStatusChange={handleStatusChange}
+                  onRequestStatusChange={handleRequestStatusChange}
                 />
               </section>
             </div>
           </AdminPageShell>
         </main>
       </div>
+
+      {statusPendingConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
+          onClick={cancelStatusChange}
+        >
+          <div
+            className="w-full rounded-t-xl border border-[var(--border)] bg-[var(--bg-mid)] p-5 shadow-2xl sm:mx-4 sm:max-w-xs sm:rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-center text-sm font-medium text-[var(--text)]">
+              Change status to <span className="capitalize">{statusPendingConfirm.status}</span>?
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={cancelStatusChange}
+                className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--button-hover)]"
+              >
+                No
+              </button>
+              <button
+                onClick={confirmStatusChange}
+                className="flex-1 rounded-lg bg-[var(--text)] px-3 py-2 text-sm font-medium text-[var(--bg-end)] transition-colors hover:opacity-90"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ScheduleDialog
         open={showNewDialog}

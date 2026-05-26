@@ -36,15 +36,15 @@ const bm: Dict = {
 
 const dictionaries = { en, bm };
 
-interface LanguageThemeContextType {
+interface LanguageContextType {
   language: Language;
   t: Dict;
   setLanguage: (lang: Language) => void;
 }
 
-const LanguageThemeContext = createContext<LanguageThemeContextType | null>(null);
+const LanguageContext = createContext<LanguageContextType | null>(null);
 
-export function LanguageThemeProvider({ children }: { children: ReactNode }) {
+export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>('en');
 
   const setLanguage = useCallback((lang: Language) => {
@@ -62,14 +62,14 @@ export function LanguageThemeProvider({ children }: { children: ReactNode }) {
   const t = dictionaries[language];
 
   return (
-    <LanguageThemeContext.Provider value={{ language, t, setLanguage }}>
+    <LanguageContext.Provider value={{ language, t, setLanguage }}>
       {children}
-    </LanguageThemeContext.Provider>
+    </LanguageContext.Provider>
   );
 }
 
-export function useLanguageTheme() {
-  const ctx = useContext(LanguageThemeContext);
-  if (!ctx) throw new Error('useLanguageTheme must be used within LanguageThemeProvider');
+export function useLanguage() {
+  const ctx = useContext(LanguageContext);
+  if (!ctx) throw new Error('useLanguage must be used within LanguageProvider');
   return ctx;
 }

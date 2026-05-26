@@ -4,14 +4,7 @@ import { memo } from 'react';
 import type { Booking } from './types';
 import { STATUS_STYLES, STATUS_LABELS } from './types';
 import { Button } from '@/components/ui/button';
-
-function PlusIcon() {
-  return (
-    <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-    </svg>
-  );
-}
+import { PlusIcon, EditIcon } from '@/components/shared/icons';
 
 interface RightPanelProps {
   selectedDate: Date;
@@ -22,7 +15,7 @@ interface RightPanelProps {
   changingStatusId: string | null;
   onNewBooking: () => void;
   onEditBooking: (b: Booking) => void;
-  onStatusChange: (id: string, status: Booking['status']) => void;
+  onRequestStatusChange: (id: string, status: Booking['status']) => void;
 }
 
 const RightPanel = memo(function RightPanel({
@@ -34,7 +27,7 @@ const RightPanel = memo(function RightPanel({
   changingStatusId,
   onNewBooking,
   onEditBooking,
-  onStatusChange,
+  onRequestStatusChange,
 }: RightPanelProps) {
   return (
     <div className="flex h-full flex-col rounded-xl border border-[var(--border)] bg-[var(--bg-mid)]">
@@ -85,14 +78,13 @@ const RightPanel = memo(function RightPanel({
                     {STATUS_LABELS[b.status]}
                   </span>
                 </div>
-                <button
-                  onClick={() => onEditBooking(b)}
-                  className="shrink-0 rounded-md p-1 text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
-                >
-                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
+                  <button
+                    onClick={() => onEditBooking(b)}
+                    className="shrink-0 rounded-md p-2 sm:p-1 text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
+                    aria-label="Edit booking"
+                  >
+                    <EditIcon className="size-4 sm:size-3.5" />
+                  </button>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-dim)]">
                 <span>{b.service}</span>
@@ -102,7 +94,7 @@ const RightPanel = memo(function RightPanel({
                 {(['confirmed', 'pending', 'cancelled'] as const).map((s) => (
                   <button
                     key={s}
-                    onClick={() => onStatusChange(b.id, s)}
+                    onClick={() => onRequestStatusChange(b.id, s)}
                     className={`rounded px-1.5 py-0.5 text-[9px] font-medium leading-tight transition-colors ${
                       b.status === s
                         ? STATUS_STYLES[s] + ' ring-1 ring-inset ring-current'

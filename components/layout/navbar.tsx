@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import gsap from 'gsap';
-import { useLanguageTheme } from '@/context/language-theme-context';
+import { useLanguage } from '@/context/language-context';
 
 const LINKS = [
   { key: 'home', href: '#hero' },
@@ -13,7 +13,7 @@ const LINKS = [
 ];
 
 export default function Navbar() {
-  const { language, t, setLanguage } = useLanguageTheme();
+  const { language, t, setLanguage } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const linksRef = useRef<(HTMLAnchorElement | null)[]>([]);

@@ -4,23 +4,15 @@ import { useEffect, useRef, useMemo, useState, memo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, getDaysInMonth, addMonths, subMonths, addYears, subYears, addWeeks, subWeeks } from 'date-fns';
 import NumberFlow from '@number-flow/react';
-import type { Booking } from '@/app/admin/schedule/types';
+import type { Booking } from '@/app/admin/schedule/_components/types';
+import { STATUS_CLASSES, STATUS_LABELS } from '@/lib/constants';
+import { loadBookings } from '@/lib/services/bookings';
+import { isAuthenticated, setLastPage, logout } from '@/lib/services/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
-
-const STORAGE_KEY = 'admin_bookings';
-
-function loadBookings(): Booking[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Booking[];
-  } catch {}
-  return [];
-}
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -31,18 +23,6 @@ function getGreeting() {
 
 const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const STATUS_CLASSES: Record<string, string> = {
-  pending: 'bg-amber-900/40 text-amber-300',
-  confirmed: 'bg-emerald-900/40 text-emerald-300',
-  cancelled: 'bg-red-900/40 text-red-300',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  cancelled: 'Cancelled',
-};
 
 const PERIODS = [
   { key: 'week', label: 'Week' },
@@ -436,9 +416,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const authed = localStorage.getItem('admin_auth');
-      if (authed !== 'true') {
-        localStorage.setItem('admin_last_page', '/admin/dashboard');
+      if (!isAuthenticated()) {
+        setLastPage('/admin/dashboard');
         router.replace('/admin/login');
         return;
       }
@@ -482,7 +461,7 @@ export default function DashboardPage() {
   };
 
   const handleSignOut = () => {
-    localStorage.removeItem('admin_auth');
+    logout();
     router.push('/admin/login');
   };
 

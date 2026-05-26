@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useLanguageTheme } from '@/context/language-theme-context';
+import { useLanguage } from '@/context/language-context';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -94,7 +94,7 @@ interface GalleryProps {
 }
 
 function GalleryCard({ item, onOpenCollection, layoutClass }: { item: CollectionItem; onOpenCollection: (c: CollectionItem) => void; layoutClass: string }) {
-  const { t } = useLanguageTheme();
+  const { t } = useLanguage();
   const cardRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const images = !item.isVideo ? [item.thumb, ...item.media] : [item.thumb];
@@ -218,7 +218,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
 }
 
 export default function Gallery({ onOpenCollection }: GalleryProps) {
-  const { t } = useLanguageTheme();
+  const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 

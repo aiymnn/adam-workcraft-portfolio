@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar } from '@/components/ui/avatar';
+import { isAuthenticated, setLastPage, logout } from '@/lib/services/auth';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
@@ -41,9 +42,8 @@ export default function BasicInfoPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const authed = localStorage.getItem('admin_auth');
-      if (authed !== 'true') {
-        localStorage.setItem('admin_last_page', '/admin/basic-info');
+      if (!isAuthenticated()) {
+        setLastPage('/admin/basic-info');
         router.replace('/admin/login');
         return;
       }
@@ -84,7 +84,7 @@ export default function BasicInfoPage() {
   };
 
   const handleSignOut = () => {
-    localStorage.removeItem('admin_auth');
+    logout();
     router.push('/admin/login');
   };
 

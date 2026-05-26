@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import CustomCursor from "@/components/ui/custom-cursor";
-import FluidBg from "@/components/ui/fluid-bg";
-import { LanguageThemeProvider } from "@/context/language-theme-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,11 +30,7 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
     >
       <body className="min-h-full flex flex-col">
-        <LanguageThemeProvider>
-          <FluidBg />
-          <CustomCursor />
-          {children}
-        </LanguageThemeProvider>
+        {children}
       </body>
     </html>
   );
