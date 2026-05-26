@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button';
 import { useAdminTheme } from '@/context/admin-theme-context';
 import { SunIcon, MoonIcon } from '@/components/shared/icons';
 import { login, isAuthenticated, getLastPage } from '@/lib/services/auth';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminLogin() {
   const router = useRouter();
   const { theme, toggleTheme } = useAdminTheme();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const { toast } = useToast();
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -29,11 +31,13 @@ export default function AdminLogin() {
     setError('');
 
     if (login(username, password)) {
+      toast.success('Welcome back');
       router.push(getLastPage() || '/admin/dashboard');
       return;
     }
 
     setError('Invalid username or password');
+    toast.error('Invalid credentials');
     setShaking(true);
     setTimeout(() => setShaking(false), 420);
   };

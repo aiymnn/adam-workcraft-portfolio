@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { LockIcon, CheckIcon, AlertIcon } from '@/components/shared/icons';
-import { isAuthenticated, setLastPage, logout } from '@/lib/services/auth';
+import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import { loadProfile, saveProfile } from '@/lib/constants';
+import { useToast } from '@/hooks/use-toast';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
@@ -25,6 +26,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState(loadProfile());
   const [saved, setSaved] = useState(false);
 
+  const { toast } = useToast();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -71,15 +73,11 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSignOut = () => {
-    logout();
-    router.push('/admin/login');
-  };
-
   const handleSaveProfile = () => {
     saveProfile(profile);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    toast.success('Profile updated');
   };
 
   const handleChangePassword = () => {
@@ -104,6 +102,7 @@ export default function ProfilePage() {
     setConfirmPassword('');
     setPasswordSaved(true);
     setTimeout(() => setPasswordSaved(false), 2000);
+    toast.success('Password updated');
   };
 
   return (
@@ -112,7 +111,6 @@ export default function ProfilePage() {
         sidebarExpanded={sidebarExpanded}
         isMobile={isMobile}
         onToggleSidebar={handleToggleSidebar}
-        onSignOut={handleSignOut}
       />
 
       <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">

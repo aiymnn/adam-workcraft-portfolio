@@ -8,7 +8,8 @@ import { EMPTY_FORM } from './_components/types';
 import { Button } from '@/components/ui/button';
 import { PlusIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/icons';
 import { loadBookings, saveBookings, generateId } from '@/lib/services/bookings';
-import { isAuthenticated, setLastPage, logout } from '@/lib/services/auth';
+import { isAuthenticated, setLastPage } from '@/lib/services/auth';
+import { useToast } from '@/hooks/use-toast';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
@@ -218,6 +219,7 @@ export default function SchedulePage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const { toast } = useToast();
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const editingRef = useRef(editingBooking);
@@ -292,11 +294,6 @@ export default function SchedulePage() {
     }
   }, [isMobile, mobileSidebarOpen]);
 
-  const handleSignOut = useCallback(() => {
-    logout();
-    router.push('/admin/login');
-  }, [router]);
-
   const openNewBooking = useCallback(() => {
     setFormData({ ...EMPTY_FORM, date: selectedStr, time: '09:00' });
     setEditingBooking(null);
@@ -362,7 +359,12 @@ export default function SchedulePage() {
     setBookings(newBookings);
     saveBookings(newBookings);
     closeDialog();
-  }, [bookings, formData, editingBooking, selectedStr, closeDialog]);
+    if (editingBooking) {
+      toast.success('Booking updated');
+    } else {
+      toast.success('Booking created');
+    }
+  }, [bookings, formData, editingBooking, selectedStr, closeDialog, toast]);
 
   const handleRequestStatusChange = useCallback((id: string, status: Booking['status']) => {
     setStatusPendingConfirm({ id, status });
@@ -382,7 +384,8 @@ export default function SchedulePage() {
     if (editingRef.current?.id === id) {
       setEditingBooking((prev) => (prev ? { ...prev, status } : null));
     }
-  }, [statusPendingConfirm]);
+    toast.success(`Status changed to ${status}`);
+  }, [statusPendingConfirm, toast]);
 
   const cancelStatusChange = useCallback(() => {
     setStatusPendingConfirm(null);
@@ -396,8 +399,9 @@ export default function SchedulePage() {
         return next;
       });
       closeDialog();
+      toast.success('Booking deleted');
     },
-    [closeDialog],
+    [closeDialog, toast],
   );
 
   const selectedDateLabel = useMemo(() => format(selectedDate, 'EEEE, MMMM d, yyyy'), [selectedDate]);
@@ -410,7 +414,6 @@ export default function SchedulePage() {
         sidebarExpanded={sidebarExpanded}
         isMobile={isMobile}
         onToggleSidebar={handleToggleSidebar}
-        onSignOut={handleSignOut}
       />
 
       <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar } from '@/components/ui/avatar';
-import { isAuthenticated, setLastPage, logout } from '@/lib/services/auth';
+import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
@@ -83,18 +83,12 @@ export default function BasicInfoPage() {
     }
   };
 
-  const handleSignOut = () => {
-    logout();
-    router.push('/admin/login');
-  };
-
   return (
     <div className="flex min-h-screen flex-col">
       <AdminHeader
         sidebarExpanded={sidebarExpanded}
         isMobile={isMobile}
         onToggleSidebar={handleToggleSidebar}
-        onSignOut={handleSignOut}
       />
 
       <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">

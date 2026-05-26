@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { isAuthenticated, setLastPage, logout } from '@/lib/services/auth';
+import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import { SOCIAL_PLATFORMS, type SocialPlatformId } from '@/lib/constants';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
@@ -63,11 +63,6 @@ export default function PlatformPage() {
     }
   };
 
-  const handleSignOut = () => {
-    logout();
-    router.push('/admin/login');
-  };
-
   if (!platform) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
@@ -85,7 +80,6 @@ export default function PlatformPage() {
         sidebarExpanded={sidebarExpanded}
         isMobile={isMobile}
         onToggleSidebar={handleToggleSidebar}
-        onSignOut={handleSignOut}
       />
 
       <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">

@@ -7,7 +7,7 @@ import NumberFlow from '@number-flow/react';
 import type { Booking } from '@/app/admin/schedule/_components/types';
 import { STATUS_CLASSES, STATUS_LABELS } from '@/lib/constants';
 import { loadBookings } from '@/lib/services/bookings';
-import { isAuthenticated, setLastPage, logout } from '@/lib/services/auth';
+import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import AdminHeader from '@/components/admin/admin-header';
@@ -460,11 +460,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSignOut = () => {
-    logout();
-    router.push('/admin/login');
-  };
-
   const stats = useMemo(() => {
     const pending = bookings.filter((b) => b.status === 'pending').length;
     const confirmed = bookings.filter((b) => b.status === 'confirmed').length;
@@ -504,7 +499,6 @@ export default function DashboardPage() {
         sidebarExpanded={sidebarExpanded}
         isMobile={isMobile}
         onToggleSidebar={handleToggleSidebar}
-        onSignOut={handleSignOut}
       />
 
       <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">

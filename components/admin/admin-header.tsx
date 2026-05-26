@@ -1,22 +1,18 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { useAdminTheme } from '@/context/admin-theme-context';
-import { logout } from '@/lib/services/auth';
-import { MenuIcon, SunIcon, MoonIcon, ChevronLeftIcon, ChevronRightIcon, LogoutIcon } from '@/components/shared/icons';
+import { MenuIcon, SunIcon, MoonIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/icons';
 
 interface AdminHeaderProps {
   sidebarExpanded: boolean;
   isMobile: boolean;
   onToggleSidebar: () => void;
-  onSignOut: () => void;
 }
 
 export default function AdminHeader({
   sidebarExpanded,
   isMobile,
   onToggleSidebar,
-  onSignOut,
 }: AdminHeaderProps) {
   const { theme, toggleTheme } = useAdminTheme();
 
@@ -39,21 +35,6 @@ export default function AdminHeader({
           aria-label="Toggle theme"
         >
           {theme === 'light' ? <MoonIcon /> : <SunIcon />}
-        </button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onSignOut}
-          className="hidden border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] hover:bg-[var(--button-hover)] md:inline-flex"
-        >
-          Sign Out
-        </Button>
-        <button
-          onClick={onSignOut}
-          className="flex size-8 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] md:hidden"
-          aria-label="Sign Out"
-        >
-          <LogoutIcon />
         </button>
       </div>
     </header>

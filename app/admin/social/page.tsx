@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ExternalLinkIcon, EditIcon, CheckIcon } from '@/components/shared/icons';
-import { isAuthenticated, setLastPage, logout } from '@/lib/services/auth';
+import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import { SOCIAL_PLATFORMS, type SocialPlatformId, loadSocialLinks, saveSocialLinks } from '@/lib/constants';
+import { useToast } from '@/hooks/use-toast';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
@@ -22,6 +23,7 @@ export default function SocialPage() {
 
   const [links, setLinks] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !isAuthenticated()) {
@@ -67,15 +69,11 @@ export default function SocialPage() {
     }
   };
 
-  const handleSignOut = () => {
-    logout();
-    router.push('/admin/login');
-  };
-
   const handleSave = () => {
     saveSocialLinks(links as Record<SocialPlatformId, string>);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    toast.success('All links saved');
   };
 
   return (
@@ -84,7 +82,6 @@ export default function SocialPage() {
         sidebarExpanded={sidebarExpanded}
         isMobile={isMobile}
         onToggleSidebar={handleToggleSidebar}
-        onSignOut={handleSignOut}
       />
 
       <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">

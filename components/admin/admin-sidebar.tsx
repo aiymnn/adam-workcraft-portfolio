@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
-import { GridIcon, PersonIcon, CalendarIcon, ShareIcon, ChevronDownIcon, XIcon } from '@/components/shared/icons';
+import { GridIcon, PersonIcon, CalendarIcon, ShareIcon, ExternalLinkIcon, LogoutIcon, ChevronDownIcon, XIcon } from '@/components/shared/icons';
 import { SOCIAL_PLATFORMS, type SocialPlatformId, loadProfile } from '@/lib/constants';
+import { logout } from '@/lib/services/auth';
+import { useToast } from '@/hooks/use-toast';
 
 type SidebarItem = {
   id: string;
@@ -32,11 +34,58 @@ const MAIN_ITEMS: SidebarItem[] = [
   },
 ];
 
-const PROFILE_ITEM: SidebarItem = { id: 'profile', label: 'Profile', href: '/admin/profile', icon: PersonIcon };
-
 function isActive(href: string, pathname: string): boolean {
   if (href === '/admin/social') return pathname === '/admin/social';
   return pathname === href || pathname.startsWith(href + '/');
+}
+
+function ProfileMenuItems({
+  navigate,
+  pathname,
+  onViewSite,
+}: {
+  navigate: (href: string) => void;
+  pathname: string;
+  onViewSite?: () => void;
+}) {
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleSignOut = () => {
+    toast.info('Signed out');
+    logout();
+    router.push('/admin/login');
+  };
+
+  return (
+    <div className="ml-2 mt-0.5 space-y-0.5 border-l border-[var(--border)] pl-2">
+      <button
+        onClick={() => navigate('/admin/profile')}
+        className={`flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+          isActive('/admin/profile', pathname)
+            ? 'bg-[var(--button-hover)] text-[var(--text)]'
+            : 'text-[var(--text-dim)] hover:bg-[var(--button)] hover:text-[var(--text-muted)]'
+        }`}
+      >
+        <PersonIcon className="size-3.5" />
+        <span className="truncate">Profile Settings</span>
+      </button>
+      <button
+        onClick={() => { window.open('/', '_blank'); onViewSite?.(); }}
+        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button)] hover:text-[var(--text-muted)]"
+      >
+        <ExternalLinkIcon className="size-3.5" />
+        <span className="truncate">View Site</span>
+      </button>
+      <button
+        onClick={handleSignOut}
+        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button)] hover:text-[var(--text-muted)]"
+      >
+        <LogoutIcon className="size-3.5" />
+        <span className="truncate">Sign Out</span>
+      </button>
+    </div>
+  );
 }
 
 interface DesktopSidebarProps {
@@ -47,6 +96,7 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [socialOpen, setSocialOpen] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState({ name: '', email: '' });
   useEffect(() => { setProfile(loadProfile()); }, []);
 
@@ -125,18 +175,38 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
       </nav>
 
       <div className="border-t border-[var(--border)] p-3">
-        <button
-          onClick={() => router.push(PROFILE_ITEM.href!)}
-          className={`flex w-full items-center rounded-lg py-2 text-sm font-medium transition-colors ${
-            isActive(PROFILE_ITEM.href!, pathname)
-              ? 'bg-[var(--button-hover)] text-[var(--text)]'
-              : 'text-[var(--text-dim)] hover:bg-[var(--button)] hover:text-[var(--text-muted)]'
-          } ${expanded ? 'gap-3 px-3 justify-start' : 'justify-center px-0'}`}
-          title={!expanded ? PROFILE_ITEM.label : undefined}
-        >
-          <Avatar src="/person-2.png" alt="Profile" fallback="AW" className={`${expanded ? 'size-7' : 'size-7'}`} />
-          {expanded && <span className="truncate">{profile.name || 'Adam Workcraft'}</span>}
-        </button>
+        {!expanded ? (
+          <button
+            onClick={() => router.push('/admin/profile')}
+            className="flex w-full items-center justify-center rounded-lg py-2 text-[var(--text-dim)] transition-colors hover:bg-[var(--button)] hover:text-[var(--text-muted)]"
+            title="Profile"
+          >
+            <Avatar src="/person-2.png" alt="Profile" fallback="AW" className="size-7" />
+          </button>
+        ) : (
+          <div>
+            <button
+              onClick={() => setProfileOpen((o) => !o)}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActive('/admin/profile', pathname) || profileOpen
+                  ? 'bg-[var(--button-hover)] text-[var(--text)]'
+                  : 'text-[var(--text-dim)] hover:bg-[var(--button)] hover:text-[var(--text-muted)]'
+              }`}
+            >
+              <Avatar src="/person-2.png" alt="Profile" fallback="AW" className="size-7" />
+              <span className="flex-1 truncate text-left">{profile.name || 'Adam Workcraft'}</span>
+              <ChevronDownIcon
+                className={`size-3 transition-transform duration-200 ${profileOpen ? 'rotate-0' : '-rotate-90'}`}
+              />
+            </button>
+            {profileOpen && (
+              <ProfileMenuItems
+                navigate={router.push}
+                pathname={pathname}
+              />
+            )}
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -151,6 +221,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [socialOpen, setSocialOpen] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState({ name: '', email: '' });
   useEffect(() => { setProfile(loadProfile()); }, []);
 
@@ -245,16 +316,26 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
 
         <div className="border-t border-[var(--border)] p-4">
           <button
-            onClick={() => handleNav(PROFILE_ITEM.href!)}
+            onClick={() => setProfileOpen((o) => !o)}
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              isActive(PROFILE_ITEM.href!, pathname)
+              isActive('/admin/profile', pathname) || profileOpen
                 ? 'bg-[var(--button-hover)] text-[var(--text)]'
                 : 'text-[var(--text-dim)] hover:bg-[var(--button)] hover:text-[var(--text-muted)]'
             }`}
           >
             <Avatar src="/person-2.png" alt="Profile" fallback="AW" className="size-7" />
-            <span className="truncate">{profile.name || 'Adam Workcraft'}</span>
+            <span className="flex-1 truncate text-left">{profile.name || 'Adam Workcraft'}</span>
+            <ChevronDownIcon
+              className={`size-3 transition-transform duration-200 ${profileOpen ? 'rotate-0' : '-rotate-90'}`}
+            />
           </button>
+          {profileOpen && (
+            <ProfileMenuItems
+              navigate={handleNav}
+              pathname={pathname}
+              onViewSite={onClose}
+            />
+          )}
         </div>
       </aside>
     </>
