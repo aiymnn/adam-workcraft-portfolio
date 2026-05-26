@@ -72,7 +72,7 @@ export default function PlatformPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <p className="text-[var(--text-dim)]">Platform not found</p>
-        <Button onClick={() => router.push('/admin/social')} className="mt-4">
+        <Button variant="secondary" size="sm" onClick={() => router.push('/admin/social')} className="mt-4 border border-[var(--border)]">
           Back to Social Media
         </Button>
       </div>
@@ -105,11 +105,15 @@ export default function PlatformPage() {
               description="Analytics and performance overview"
               actions={
                 <Button
-                  variant="outline"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => router.push('/admin/social')}
-                  className="text-xs"
+                  className="border border-[var(--border)]"
                 >
-                  &larr; All Links
+                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                  </svg>
+                  <span>All Links</span>
                 </Button>
               }
             />

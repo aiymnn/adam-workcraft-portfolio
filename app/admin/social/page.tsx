@@ -104,13 +104,15 @@ export default function SocialPage() {
               description="Manage all your social media links in one place"
               actions={
                 <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={handleSave}
-                  className="border border-[var(--border)] bg-[var(--text)] text-[var(--bg-end)] hover:opacity-90"
+                  className="border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
                 >
                   {saved ? (
                     <><CheckIcon className="size-4" /><span>Saved</span></>
                   ) : (
-                    'Save All'
+                    <><CheckIcon className="size-4" /><span>Save All</span></>
                   )}
                 </Button>
               }

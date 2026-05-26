@@ -157,8 +157,9 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-3 pt-1">
                   <Button
+                    variant="primary"
+                    size="sm"
                     onClick={handleSaveProfile}
-                    className="border border-[var(--border)] bg-[var(--text)] text-[var(--bg-end)] hover:opacity-90"
                   >
                     {saved ? (
                       <><CheckIcon className="size-4" /><span>Saved</span></>

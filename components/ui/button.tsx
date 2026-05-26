@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 const variants = {
   default: 'bg-stone-100 text-stone-900 hover:bg-stone-200',
   destructive: 'bg-red-600 text-white hover:bg-red-700',
+  primary: 'border border-[var(--border)] bg-[var(--text)] text-[var(--bg-end)] hover:opacity-90',
   outline: 'border border-[var(--border)] bg-transparent hover:bg-[var(--button-hover)] hover:text-[var(--text)]',
   secondary: 'bg-[var(--button)] text-[var(--text-muted)] hover:bg-[var(--button-hover)] hover:text-[var(--text)]',
   ghost: 'hover:bg-[var(--button)] hover:text-[var(--text)]',
