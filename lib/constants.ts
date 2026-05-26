@@ -31,3 +31,51 @@ export const STATUS_LABELS: Record<string, string> = {
   confirmed: 'Confirmed',
   cancelled: 'Cancelled',
 };
+
+export const SOCIAL_PLATFORMS = [
+  { id: 'x', label: 'X (Twitter)', icon: 'X' },
+  { id: 'instagram', label: 'Instagram', icon: 'Instagram' },
+  { id: 'threads', label: 'Threads', icon: 'Threads' },
+  { id: 'tiktok', label: 'TikTok', icon: 'TikTok' },
+  { id: 'whatsapp', label: 'WhatsApp', icon: 'WhatsApp' },
+] as const;
+
+export type SocialPlatformId = (typeof SOCIAL_PLATFORMS)[number]['id'];
+
+export const SOCIAL_LINKS_STORAGE_KEY = 'admin_social_links';
+
+export function loadSocialLinks(): Record<SocialPlatformId, string> {
+  if (typeof window === 'undefined') {
+    return { x: '', instagram: '', threads: '', tiktok: '', whatsapp: '' };
+  }
+  try {
+    const raw = localStorage.getItem(SOCIAL_LINKS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as Record<SocialPlatformId, string>;
+  } catch {}
+  return { x: '', instagram: '', threads: '', tiktok: '', whatsapp: '' };
+}
+
+export function saveSocialLinks(links: Record<SocialPlatformId, string>) {
+  try {
+    localStorage.setItem(SOCIAL_LINKS_STORAGE_KEY, JSON.stringify(links));
+  } catch {}
+}
+
+export const PROFILE_STORAGE_KEY = 'admin_profile';
+
+export function loadProfile() {
+  if (typeof window === 'undefined') {
+    return { name: 'Adam Workcraft', email: 'hello@adamworkcraft.com' };
+  }
+  try {
+    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as { name: string; email: string };
+  } catch {}
+  return { name: 'Adam Workcraft', email: 'hello@adamworkcraft.com' };
+}
+
+export function saveProfile(profile: { name: string; email: string }) {
+  try {
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  } catch {}
+}

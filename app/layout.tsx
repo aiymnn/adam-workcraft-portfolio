@@ -28,8 +28,14 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('admin_theme');if(t)document.documentElement.classList.add('admin-theme-'+t)}catch(e){}})()`
+          }}
+        />
         {children}
       </body>
     </html>
