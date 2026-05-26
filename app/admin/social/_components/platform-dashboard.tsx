@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useRef, useCallback } from 'react';
+import { memo, useMemo, useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { ChevronDownIcon } from '@/components/shared/icons';
@@ -26,7 +26,7 @@ type Period = 'week' | 'month' | 'year';
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function StatsCards({ data }: { data: PlatformDummyData }) {
+const StatsCards = memo(function StatsCards({ data }: { data: PlatformDummyData }) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {data.stats.map((card) => {
@@ -55,12 +55,13 @@ function StatsCards({ data }: { data: PlatformDummyData }) {
       })}
     </div>
   );
-}
+});
 
-function GrowthChart({ data, platformId, period, cursor, onCursorChange }: { data: PlatformDummyData; platformId: SocialPlatformId; period: Period; cursor: Date; onCursorChange: (d: Date) => void }) {
+const GrowthChart = memo(function GrowthChart({ data, platformId, period, cursor, onCursorChange }: { data: PlatformDummyData; platformId: SocialPlatformId; period: Period; cursor: Date; onCursorChange: (d: Date) => void }) {
   const [hovered, setHovered] = useState<{ label: string; value: number; cx: number; cy: number } | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
+  const growthMap = useMemo(() => new Map(data.growth.map(p => [p.date, p.value])), [data.growth]);
   const title = platformId === 'whatsapp' ? 'Messages Over Time' : 'Follower Growth';
 
   const { sliced, labels, navLabel } = useMemo(() => {
@@ -74,8 +75,7 @@ function GrowthChart({ data, platformId, period, cursor, onCursorChange }: { dat
       });
       const vals = days.map((day) => {
         const ds = day.toISOString().slice(0, 10);
-        const pt = data.growth.find((p) => p.date === ds);
-        return pt ? pt.value : 0;
+        return growthMap.get(ds) || 0;
       });
       const labs = days.map((d) => d.toLocaleDateString('en', { weekday: 'short' }));
       return { sliced: vals, labels: labs, navLabel: `${days[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} – ${days[6].toLocaleDateString('en', { month: 'short', day: 'numeric' })}` };
@@ -86,8 +86,7 @@ function GrowthChart({ data, platformId, period, cursor, onCursorChange }: { dat
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const vals = Array.from({ length: daysInMonth }, (_, i) => {
         const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
-        const pt = data.growth.find((p) => p.date === ds);
-        return pt ? pt.value : 0;
+        return growthMap.get(ds) || 0;
       });
       const step = Math.max(1, Math.floor(daysInMonth / 10));
       const labs = Array.from({ length: daysInMonth }, (_, i) => (i % step === 0 ? `${i + 1}` : ''));
@@ -96,11 +95,10 @@ function GrowthChart({ data, platformId, period, cursor, onCursorChange }: { dat
     const year = cursor.getFullYear();
     const vals = Array.from({ length: 12 }, (_, m) => {
       const ds = `${year}-${String(m + 1).padStart(2, '0')}-01`;
-      const pt = data.growth.find((p) => p.date === ds);
-      return pt ? pt.value : 0;
+      return growthMap.get(ds) || 0;
     });
     return { sliced: vals, labels: MONTHS, navLabel: `${year}` };
-  }, [period, cursor, data]);
+  }, [period, cursor, growthMap]);
 
   const trend = useMemo(() => {
     if (sliced.length < 2) return 0;
@@ -113,9 +111,8 @@ function GrowthChart({ data, platformId, period, cursor, onCursorChange }: { dat
       for (let i = 0; i < 7; i++) {
         const d1 = new Date(start); d1.setDate(d1.getDate() + i);
         const d2 = new Date(prevStart); d2.setDate(d2.getDate() + i);
-        const p1 = data.growth.find(p => p.date === d1.toISOString().slice(0, 10));
-        const p2 = data.growth.find(p => p.date === d2.toISOString().slice(0, 10));
-        cur += p1 ? p1.value : 0; prev += p2 ? p2.value : 0;
+        cur += growthMap.get(d1.toISOString().slice(0, 10)) || 0;
+        prev += growthMap.get(d2.toISOString().slice(0, 10)) || 0;
       }
       return prev > 0 ? Math.round(((cur - prev) / prev) * 100) : 0;
     }
@@ -128,25 +125,21 @@ function GrowthChart({ data, platformId, period, cursor, onCursorChange }: { dat
       const prevDays = new Date(prevYear, prevMonth + 1, 0).getDate();
       let cur = 0, prev = 0;
       for (let d = 1; d <= daysInMonth; d++) {
-        const pt = data.growth.find(p => p.date === `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
-        cur += pt ? pt.value : 0;
+        cur += growthMap.get(`${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`) || 0;
       }
       for (let d = 1; d <= prevDays; d++) {
-        const pt = data.growth.find(p => p.date === `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
-        prev += pt ? pt.value : 0;
+        prev += growthMap.get(`${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`) || 0;
       }
       return prev > 0 ? Math.round(((cur - prev) / prev) * 100) : 0;
     }
     const year = cursor.getFullYear();
     let cur = 0, prev = 0;
     for (let m = 0; m < 12; m++) {
-      const pt = data.growth.find(p => p.date === `${year}-${String(m + 1).padStart(2, '0')}-01`);
-      cur += pt ? pt.value : 0;
-      const pt2 = data.growth.find(p => p.date === `${year - 1}-${String(m + 1).padStart(2, '0')}-01`);
-      prev += pt2 ? pt2.value : 0;
+      cur += growthMap.get(`${year}-${String(m + 1).padStart(2, '0')}-01`) || 0;
+      prev += growthMap.get(`${year - 1}-${String(m + 1).padStart(2, '0')}-01`) || 0;
     }
     return prev > 0 ? Math.round(((cur - prev) / prev) * 100) : 0;
-  }, [period, cursor, data.growth, sliced]);
+  }, [period, cursor, growthMap, sliced]);
 
   const max = Math.max(...sliced, 1);
   const ptCount = sliced.length;
@@ -294,9 +287,10 @@ function GrowthChart({ data, platformId, period, cursor, onCursorChange }: { dat
       </CardContent>
     </Card>
   );
-}
+});
 
-function BarChart({ data, period, cursor }: { data: PlatformDummyData; period: Period; cursor: Date }) {
+const BarChart = memo(function BarChart({ data, period, cursor }: { data: PlatformDummyData; period: Period; cursor: Date }) {
+  const growthMap = useMemo(() => new Map(data.growth.map(p => [p.date, p.value])), [data.growth]);
   const { barData, barLabels, title } = useMemo(() => {
     if (period === 'week') {
       const start = new Date(cursor);
@@ -308,8 +302,7 @@ function BarChart({ data, period, cursor }: { data: PlatformDummyData; period: P
       });
       const vals = days.map((day) => {
         const ds = day.toISOString().slice(0, 10);
-        const pt = data.growth.find((p) => p.date === ds);
-        return pt ? pt.value : 0;
+        return growthMap.get(ds) || 0;
       });
       return { barData: vals, barLabels: DAYS, title: `Weekly ${data.barLabel}` };
     }
@@ -320,20 +313,18 @@ function BarChart({ data, period, cursor }: { data: PlatformDummyData; period: P
       const weeks = [0, 0, 0, 0];
       for (let d = 1; d <= daysInMonth; d++) {
         const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const pt = data.growth.find((p) => p.date === ds);
         const weekIdx = Math.min(3, Math.floor((d - 1) / 7));
-        weeks[weekIdx] += pt ? pt.value : 0;
+        weeks[weekIdx] += growthMap.get(ds) || 0;
       }
       return { barData: weeks, barLabels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'], title: cursor.toLocaleDateString('en', { month: 'long', year: 'numeric' }) + ' ' + data.barLabel };
     }
     const year = cursor.getFullYear();
     const vals = Array.from({ length: 12 }, (_, m) => {
       const ds = `${year}-${String(m + 1).padStart(2, '0')}-01`;
-      const pt = data.growth.find((p) => p.date === ds);
-      return pt ? pt.value : 0;
+      return growthMap.get(ds) || 0;
     });
     return { barData: vals, barLabels: MONTHS, title: `${year} ${data.barLabel}` };
-  }, [period, cursor, data]);
+  }, [period, cursor, growthMap]);
 
   const max = Math.max(...barData, 1);
   const peakIdx = barData.indexOf(max);
@@ -367,9 +358,9 @@ function BarChart({ data, period, cursor }: { data: PlatformDummyData; period: P
       </CardContent>
     </Card>
   );
-}
+});
 
-function TopPostList({ data }: { data: PlatformDummyData }) {
+const TopPostList = memo(function TopPostList({ data }: { data: PlatformDummyData }) {
   return (
     <Card className="flex flex-col">
       <CardHeader className="shrink-0 px-4 pb-2 pt-4">
@@ -397,9 +388,9 @@ function TopPostList({ data }: { data: PlatformDummyData }) {
       </CardContent>
     </Card>
   );
-}
+});
 
-function WeekSelector({ cursor, onChange }: { cursor: Date; onChange: (d: Date) => void }) {
+const WeekSelector = memo(function WeekSelector({ cursor, onChange }: { cursor: Date; onChange: (d: Date) => void }) {
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const daysInMonth = useMemo(() => new Date(year, month + 1, 0).getDate(), [year, month]);
@@ -440,9 +431,9 @@ function WeekSelector({ cursor, onChange }: { cursor: Date; onChange: (d: Date) 
       ))}
     </div>
   );
-}
+});
 
-function MonthYearSelector({ cursor, onChange }: { cursor: Date; onChange: (d: Date) => void }) {
+const MonthYearSelector = memo(function MonthYearSelector({ cursor, onChange }: { cursor: Date; onChange: (d: Date) => void }) {
   const [open, setOpen] = useState(false);
   const displayYear = cursor.getFullYear();
   const displayMonth = cursor.getMonth();
@@ -509,9 +500,9 @@ function MonthYearSelector({ cursor, onChange }: { cursor: Date; onChange: (d: D
       </PopoverContent>
     </Popover>
   );
-}
+});
 
-function YearSelector({ cursor, onChange }: { cursor: Date; onChange: (d: Date) => void }) {
+const YearSelector = memo(function YearSelector({ cursor, onChange }: { cursor: Date; onChange: (d: Date) => void }) {
   const years = useMemo(() => {
     const y = new Date().getFullYear();
     return [y - 2, y - 1, y];
@@ -539,7 +530,7 @@ function YearSelector({ cursor, onChange }: { cursor: Date; onChange: (d: Date) 
       ))}
     </div>
   );
-}
+});
 
 interface PlatformDashboardProps {
   data: PlatformDummyData;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { isAuthenticated, setLastPage, logout } from '@/lib/services/auth';
@@ -114,7 +114,7 @@ export default function PlatformPage() {
               }
             />
 
-            <PlatformDashboard data={getDummyData(platformId)} platformId={platformId} />
+            <PlatformDashboard data={useMemo(() => getDummyData(platformId), [platformId])} platformId={platformId} />
           </AdminPageShell>
         </main>
       </div>
