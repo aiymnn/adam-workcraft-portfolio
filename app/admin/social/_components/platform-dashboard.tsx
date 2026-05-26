@@ -1,9 +1,10 @@
 'use client';
 
-import { memo, useMemo, useState, useRef, useCallback } from 'react';
+import { memo, useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { ChevronDownIcon } from '@/components/shared/icons';
+import { ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '@/components/shared/icons';
+import NumberFlow from '@number-flow/react';
 import type { PlatformDummyData } from '@/types/social';
 import type { SocialPlatformId } from '@/lib/constants';
 
@@ -26,29 +27,115 @@ type Period = 'week' | 'month' | 'year';
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+const LABEL_STYLE: Record<string, { icon: React.ReactNode; accent: string }> = {
+  Followers: {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>,
+    accent: 'bg-blue-900/40 text-blue-400',
+  },
+  'Total Views': {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+    accent: 'bg-purple-900/40 text-purple-400',
+  },
+  'Total Impressions': {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>,
+    accent: 'bg-purple-900/40 text-purple-400',
+  },
+  'Profile Reach': {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" /></svg>,
+    accent: 'bg-purple-900/40 text-purple-400',
+  },
+  'Total Chats': {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" /></svg>,
+    accent: 'bg-emerald-900/40 text-emerald-400',
+  },
+  'Messages Sent': {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>,
+    accent: 'bg-teal-900/40 text-teal-400',
+  },
+  'Broadcast Lists': {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38a3.04 3.04 0 01-3.157-.019L4.42 14.93A2.25 2.25 0 013 13.047V11.25m13.5-4.5A2.25 2.25 0 0118.75 9v2.25m0 0a2.25 2.25 0 001.35 2.045l4.5 2.25c.69.345.9 1.2.45 1.845a2.733 2.733 0 01-2.26 1.16H18.75" /></svg>,
+    accent: 'bg-violet-900/40 text-violet-400',
+  },
+  'Videos Posted': {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>,
+    accent: 'bg-indigo-900/40 text-indigo-400',
+  },
+  Posts: {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>,
+    accent: 'bg-indigo-900/40 text-indigo-400',
+  },
+  Threads: {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" /></svg>,
+    accent: 'bg-indigo-900/40 text-indigo-400',
+  },
+  'Response Rate': {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    accent: 'bg-cyan-900/40 text-cyan-400',
+  },
+  'Engagement Rate': {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" /></svg>,
+    accent: 'bg-amber-900/40 text-amber-300',
+  },
+  'Avg. Watch Time': {
+    icon: <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    accent: 'bg-orange-900/40 text-orange-400',
+  },
+};
+
+const StatNumber = memo(function StatNumber({ value, suffix, label }: { value: number; suffix: string; label: string }) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setV(value));
+    return () => cancelAnimationFrame(t);
+  }, [value]);
+  const isTime = label === 'Avg. Watch Time';
+  return (
+    <div className="overflow-hidden">
+      <NumberFlow
+        value={v}
+        format={{ notation: 'compact', compactDisplay: 'short', maximumFractionDigits: 1 }}
+        prefix={isTime ? '0:' : ''}
+        suffix={isTime ? '' : suffix}
+        transformTiming={{ duration: 400, easing: 'ease-out' }}
+        className="text-xl font-semibold text-[var(--text)]"
+      />
+    </div>
+  );
+});
+
 const StatsCards = memo(function StatsCards({ data }: { data: PlatformDummyData }) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {data.stats.map((card) => {
         const trend = card.sub.startsWith('+') ? 'up' : card.sub.startsWith('-') ? 'down' : null;
+        const style = LABEL_STYLE[card.label];
         return (
           <Card key={card.label}>
             <CardContent className="p-4">
-              <p className="text-[11px] font-medium text-[var(--text-muted)]">{card.label}</p>
-              <p className="mt-1 text-xl font-semibold text-[var(--text)]">{card.value}</p>
-              <p className={`mt-0.5 flex items-center gap-0.5 text-[10px] ${trend === 'up' ? 'text-emerald-400' : trend === 'down' ? 'text-red-400' : 'text-[var(--text-dim)]'}`}>
-                {trend === 'up' && (
-                  <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
-                  </svg>
-                )}
-                {trend === 'down' && (
-                  <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6L9 12.75l4.286-4.286a11.95 11.95 0 014.306 6.43l.536 2.929m0 0l-5.94 2.28m5.94-2.28l2.28-5.941" />
-                  </svg>
-                )}
-                {card.sub}
-              </p>
+              <div className="flex items-center gap-3">
+                <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${style?.accent || 'bg-[var(--button)] text-[var(--text-muted)]'}`}>
+                  {style?.icon || (
+                    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                    </svg>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium text-[var(--text-muted)]">{card.label}</p>
+                  <div className="mt-0.5">
+                    <StatNumber
+                      value={card.rawValue}
+                      suffix={card.value.endsWith('%') ? '%' : ''}
+                      label={card.label}
+                    />
+                  </div>
+                  <p className={`mt-0.5 flex items-center gap-0.5 text-[10px] ${trend === 'up' ? 'text-emerald-400' : trend === 'down' ? 'text-red-400' : 'text-[var(--text-dim)]'}`}>
+                    {trend === 'up' && <TrendingUpIcon className="size-3" />}
+                    {trend === 'down' && <TrendingDownIcon className="size-3" />}
+                    {card.sub}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         );

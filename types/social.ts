@@ -2,6 +2,7 @@ export interface StatCard {
   label: string;
   value: string;
   sub: string;
+  rawValue: number;
 }
 
 export interface GrowthPoint {

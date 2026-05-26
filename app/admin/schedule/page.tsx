@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addDays } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addDays, subDays, subWeeks } from 'date-fns';
 import type { Booking, FormData } from './_components/types';
 import { EMPTY_FORM } from './_components/types';
 import { Button } from '@/components/ui/button';
-import { PlusIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/icons';
+import { Card, CardContent } from '@/components/ui/card';
+import { PlusIcon, ChevronLeftIcon, ChevronRightIcon, TrendingUpIcon, TrendingDownIcon } from '@/components/shared/icons';
+import NumberFlow from '@number-flow/react';
 import { loadBookings, saveBookings, generateId } from '@/lib/services/bookings';
 import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -51,23 +53,21 @@ interface CalendarGridProps {
   changingStatusId: string | null;
 }
 
-type ScheduleStats = { total: number; today: number; week: number; pending: number };
+type ScheduleStats = { total: number; today: number; week: number; pending: number; todayTrend?: { value: number; direction: 'up' | 'down' }; weekTrend?: { value: number; direction: 'up' | 'down' }; pendingTrend?: { value: number; direction: 'up' | 'down' } };
+type ScheduleTrends = { total?: { value: number; direction: 'up' | 'down' }; today?: { value: number; direction: 'up' | 'down' }; week?: { value: number; direction: 'up' | 'down' }; pending?: { value: number; direction: 'up' | 'down' } };
 
-const StatsCards = memo(function StatsCards({ stats }: { stats: ScheduleStats }) {
+const StatsCards = memo(function StatsCards({ stats, trends }: { stats: ScheduleStats; trends?: ScheduleTrends }) {
   return (
     <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
       {[
-        { label: 'Total', value: stats.total, icon: 'calendar' },
-        { label: 'Today', value: stats.today, icon: 'today' },
-        { label: 'This Week', value: stats.week, icon: 'week' },
-        { label: 'Pending', value: stats.pending, icon: 'pending' },
+        { label: 'Total', value: stats.total, icon: 'calendar', accent: 'bg-sky-900/40 text-sky-400', trend: trends?.total },
+        { label: 'Today', value: stats.today, icon: 'today', accent: 'bg-emerald-900/40 text-emerald-400', trend: trends?.today },
+        { label: 'This Week', value: stats.week, icon: 'week', accent: 'bg-blue-900/40 text-blue-400', trend: trends?.week },
+        { label: 'Pending', value: stats.pending, icon: 'pending', accent: 'bg-amber-900/40 text-amber-300', trend: trends?.pending },
       ].map((s) => (
-        <div
-          key={s.label}
-          className="rounded-xl border border-[var(--border)] bg-[var(--bg-mid)]/40 p-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--button)]">
+        <Card key={s.label}>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${s.accent}`}>
               {s.icon === 'calendar' && (
                 <svg className="size-4 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
@@ -89,12 +89,22 @@ const StatsCards = memo(function StatsCards({ stats }: { stats: ScheduleStats })
                 </svg>
               )}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-[var(--text-dim)]">{s.label}</p>
-              <p className="mt-0.5 text-xl font-bold tracking-tight text-[var(--text)]">{s.value}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xl font-bold tracking-tight text-[var(--text)]">
+                  <NumberFlow value={s.value} transformTiming={{ duration: 600, easing: 'ease-out' }} />
+                </p>
+                {s.trend && (
+                  <span className={`flex items-center gap-0.5 text-[10px] font-medium ${s.trend.direction === 'up' ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {s.trend.direction === 'up' ? <TrendingUpIcon className="size-3" /> : <TrendingDownIcon className="size-3" />}
+                    {s.trend.value}%
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -273,13 +283,35 @@ export default function SchedulePage() {
   const stats = useMemo(() => {
     const today = new Date();
     const todayS = format(today, 'yyyy-MM-dd');
+    const yesterdayS = format(subDays(today, 1), 'yyyy-MM-dd');
     const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
     const weekEnd = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const lastWeekStart = format(startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const lastWeekEnd = format(endOfWeek(subWeeks(today, 1), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+
+    const total = bookings.length;
+    const todayCount = bookings.filter((b) => b.date === todayS).length;
+    const yesterdayCount = bookings.filter((b) => b.date === yesterdayS).length;
+    const weekCount = bookings.filter((b) => b.date >= weekStart && b.date <= weekEnd).length;
+    const lastWeekCount = bookings.filter((b) => b.date >= lastWeekStart && b.date <= lastWeekEnd).length;
+    const pending = bookings.filter((b) => b.status === 'pending').length;
+    const lastWeekPending = bookings.filter((b) => b.status === 'pending' && b.date >= lastWeekStart && b.date <= lastWeekEnd).length;
+
+    const getTrend = (current: number, previous: number): { value: number; direction: 'up' | 'down' } | undefined => {
+      if (previous === 0) return undefined;
+      const pct = Math.round(((current - previous) / previous) * 100);
+      if (pct === 0) return undefined;
+      return { value: Math.abs(pct), direction: pct > 0 ? 'up' : 'down' };
+    };
+
     return {
-      total: bookings.length,
-      today: bookings.filter((b) => b.date === todayS).length,
-      week: bookings.filter((b) => b.date >= weekStart && b.date <= weekEnd).length,
-      pending: bookings.filter((b) => b.status === 'pending').length,
+      total,
+      today: todayCount,
+      week: weekCount,
+      pending,
+      todayTrend: getTrend(todayCount, yesterdayCount),
+      weekTrend: getTrend(weekCount, lastWeekCount),
+      pendingTrend: getTrend(pending, lastWeekPending),
     };
   }, [bookings]);
 
@@ -444,7 +476,7 @@ export default function SchedulePage() {
               }
             />
 
-            <StatsCards stats={stats} />
+            <StatsCards stats={stats} trends={{ today: stats.todayTrend, week: stats.weekTrend, pending: stats.pendingTrend }} />
 
             <div className="mb-4 flex rounded-lg border border-[var(--border)] p-0.5 lg:hidden">
               {(['calendar', 'bookings'] as const).map((t) => (

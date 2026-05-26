@@ -10,6 +10,7 @@ import { loadBookings } from '@/lib/services/bookings';
 import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { TrendingUpIcon, TrendingDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/icons';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
@@ -45,9 +46,10 @@ interface StatCardProps {
   icon: string;
   accent: string;
   href: string;
+  trend?: { value: number; direction: 'up' | 'down' } | null;
 }
 
-const StatCard = memo(function StatCard({ label, value, icon, accent, href }: StatCardProps) {
+const StatCard = memo(function StatCard({ label, value, icon, accent, href, trend }: StatCardProps) {
   const router = useRouter();
   return (
     <button
@@ -62,11 +64,19 @@ const StatCard = memo(function StatCard({ label, value, icon, accent, href }: St
               <path strokeLinecap="round" strokeLinejoin="round" d={STAT_ICONS[icon]} />
             </svg>
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-[var(--text-dim)]">{label}</p>
-            <p className="text-2xl font-bold tracking-tight text-[var(--text)]">
-              <NumberFlow value={value} transformTiming={{ duration: 600, easing: 'ease-out' }} />
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-2xl font-bold tracking-tight text-[var(--text)]">
+                <NumberFlow value={value} transformTiming={{ duration: 600, easing: 'ease-out' }} />
+              </p>
+              {trend && (
+                <span className={`flex items-center gap-0.5 text-[10px] font-medium ${trend.direction === 'up' ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {trend.direction === 'up' ? <TrendingUpIcon className="size-3" /> : <TrendingDownIcon className="size-3" />}
+                  {trend.value}%
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
@@ -74,15 +84,12 @@ const StatCard = memo(function StatCard({ label, value, icon, accent, href }: St
   );
 });
 
-function TrendLineChart({ bookings }: { bookings: Booking[] }) {
+function TrendLineChart({ bookings, period, cursor }: { bookings: Booking[]; period: Period; cursor: Date }) {
   const router = useRouter();
-  const now = useMemo(() => new Date(), []);
-  const [period, setPeriod] = useState<Period>('week');
-  const [cursor, setCursor] = useState(now);
   const [hovered, setHovered] = useState<{ label: string; value: number; cx: number; cy: number } | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
-  const { data, labels, navLabel } = useMemo(() => {
+  const { data, labels } = useMemo(() => {
     if (period === 'week') {
       const start = startOfWeek(cursor, { weekStartsOn: 1 });
       const end = endOfWeek(cursor, { weekStartsOn: 1 });
@@ -92,7 +99,7 @@ function TrendLineChart({ bookings }: { bookings: Booking[] }) {
         return bookings.filter((b) => b.date === ds).length;
       });
       const labs = days.map((day) => format(day, 'EEE'));
-      return { data: d, labels: labs, navLabel: format(start, 'MMM d, yyyy') };
+      return { data: d, labels: labs };
     }
     if (period === 'month') {
       const count = getDaysInMonth(cursor);
@@ -102,22 +109,14 @@ function TrendLineChart({ bookings }: { bookings: Booking[] }) {
       });
       const step = Math.max(1, Math.floor(count / 10));
       const labs = Array.from({ length: count }, (_, i) => (i % step === 0 ? `${i + 1}` : ''));
-      return { data: d, labels: labs, navLabel: format(cursor, 'MMMM yyyy') };
+      return { data: d, labels: labs };
     }
     const d = Array.from({ length: 12 }, (_, i) => {
       const m = i.toString().padStart(2, '0');
       return bookings.filter((b) => b.date.startsWith(`${cursor.getFullYear()}-${m}`)).length;
     });
-    return { data: d, labels: MONTH_NAMES, navLabel: `${cursor.getFullYear()}` };
+    return { data: d, labels: MONTH_NAMES };
   }, [period, cursor, bookings]);
-
-  const onPrev = useCallback(() => {
-    setCursor((c) => (period === 'week' ? subWeeks(c, 1) : period === 'month' ? subMonths(c, 1) : subYears(c, 1)));
-  }, [period]);
-
-  const onNext = useCallback(() => {
-    setCursor((c) => (period === 'week' ? addWeeks(c, 1) : period === 'month' ? addMonths(c, 1) : addYears(c, 1)));
-  }, [period]);
 
   const max = Math.max(...data, 1);
   const ptCount = data.length;
@@ -159,51 +158,13 @@ function TrendLineChart({ bookings }: { bookings: Booking[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-0.5 rounded-lg border border-[var(--border)] p-0.5">
-          {PERIODS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => { setPeriod(p.key); setCursor(now); }}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                period === p.key
-                  ? 'bg-[var(--button-hover)] text-[var(--text)]'
-                  : 'text-[var(--text-dim)] hover:text-[var(--text)]'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+      <div className="text-right">
         <button
           type="button"
           onClick={() => router.push('/admin/schedule')}
           className="text-[11px] font-medium text-[var(--text-dim)] transition-colors hover:text-[var(--text)]"
         >
           View all &rarr;
-        </button>
-      </div>
-
-      <div className="flex items-center justify-center gap-4">
-        <button
-          type="button"
-          onClick={onPrev}
-          className="flex size-6 items-center justify-center rounded text-[var(--text-dim)] transition-colors hover:bg-[var(--button)] hover:text-[var(--text)]"
-        >
-          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-        </button>
-        <span className="text-xs font-medium text-[var(--text-muted)]">{navLabel}</span>
-        <button
-          type="button"
-          onClick={onNext}
-          className="flex size-6 items-center justify-center rounded text-[var(--text-dim)] transition-colors hover:bg-[var(--button)] hover:text-[var(--text)]"
-        >
-          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
         </button>
       </div>
 
@@ -277,33 +238,40 @@ function TrendLineChart({ bookings }: { bookings: Booking[] }) {
   );
 }
 
-function DonutChart({ bookings }: { bookings: Booking[] }) {
+function DonutChart({ bookings, period, cursor }: { bookings: Booking[]; period: Period; cursor: Date }) {
+  const range = useMemo(() => computePeriodRanges(period, cursor), [period, cursor]);
+  const filtered = useMemo(() => {
+    const s = format(range.start, 'yyyy-MM-dd');
+    const e = format(range.end, 'yyyy-MM-dd');
+    return bookings.filter((b) => b.date >= s && b.date <= e);
+  }, [bookings, range]);
+
   const segments = useMemo(() => {
-    const pending = bookings.filter((b) => b.status === 'pending').length;
-    const confirmed = bookings.filter((b) => b.status === 'confirmed').length;
-    const cancelled = bookings.filter((b) => b.status === 'cancelled').length;
+    const pending = filtered.filter((b) => b.status === 'pending').length;
+    const confirmed = filtered.filter((b) => b.status === 'confirmed').length;
+    const cancelled = filtered.filter((b) => b.status === 'cancelled').length;
     return [
       { status: 'confirmed', count: confirmed, color: '#10b981' },
       { status: 'pending', count: pending, color: '#f59e0b' },
       { status: 'cancelled', count: cancelled, color: '#ef4444' },
     ].filter((s) => s.count > 0);
-  }, [bookings]);
+  }, [filtered]);
 
   const [hoveredSeg, setHoveredSeg] = useState<string | null>(null);
   const total = segments.reduce((s, seg) => s + seg.count, 0);
-  if (total === 0) return <p className="py-8 text-center text-sm text-[var(--text-dim)]">No data</p>;
+  if (total === 0) return <p className="py-8 text-center text-sm text-[var(--text-dim)]">No data for this period</p>;
 
-  const r = 58;
+  const r = 78;
   const circ = 2 * Math.PI * r;
-  const viewSize = 160;
+  const viewSize = 200;
   const cx = viewSize / 2;
   const cy = viewSize / 2;
   let offset = 0;
 
   return (
-    <div className="flex flex-col items-center gap-5 py-2 sm:flex-row sm:justify-center sm:gap-8">
-      <svg width="100%" height="100%" viewBox={`0 0 ${viewSize} ${viewSize}`} className="max-w-[180px]">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#292524" strokeWidth={16} />
+    <div className="flex flex-col items-center gap-5 py-2">
+      <svg width="100%" height="100%" viewBox={`0 0 ${viewSize} ${viewSize}`} className="max-w-[220px] md:max-w-[240px]">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#292524" strokeWidth={18} />
         {segments.map((seg) => {
           const len = (seg.count / total) * circ;
           const dash = `${len} ${circ - len}`;
@@ -318,7 +286,7 @@ function DonutChart({ bookings }: { bookings: Booking[] }) {
               r={r}
               fill="none"
               stroke={seg.color}
-              strokeWidth={isHovered ? 20 : 16}
+              strokeWidth={isHovered ? 22 : 18}
               strokeDasharray={dash}
               strokeDashoffset={segOffset}
               transform={`rotate(-90 ${cx} ${cy})`}
@@ -332,15 +300,15 @@ function DonutChart({ bookings }: { bookings: Booking[] }) {
             </circle>
           );
         })}
-        <circle cx={cx} cy={cy} r={30} fill="#1c1917" />
-        <text x={cx} y={cy - 4} textAnchor="middle" fill="#a8a29e" fontSize={10} fontWeight={500}>
+        <circle cx={cx} cy={cy} r={34} fill="#1c1917" />
+        <text x={cx} y={cy - 5} textAnchor="middle" fill="#a8a29e" fontSize={11} fontWeight={500}>
           Total
         </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" fill="#f5f5f4" fontSize={20} fontWeight={700}>
+        <text x={cx} y={cy + 16} textAnchor="middle" fill="#f5f5f4" fontSize={22} fontWeight={700}>
           {total}
         </text>
       </svg>
-      <div className="flex flex-row flex-wrap justify-center gap-2 sm:flex-col">
+      <div className="flex flex-wrap justify-center gap-2">
         {segments.map((seg) => {
           const pct = Math.round((seg.count / total) * 100);
           const isHovered = hoveredSeg === seg.status;
@@ -348,7 +316,7 @@ function DonutChart({ bookings }: { bookings: Booking[] }) {
             <button
               key={seg.status}
               type="button"
-              className={`flex items-center gap-2.5 rounded-lg border px-3.5 py-2 text-xs transition-all ${
+              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition-all ${
                 isHovered
                   ? 'border-[var(--button-hover)] bg-[var(--button)]'
                   : 'border-transparent hover:bg-[var(--button)]'
@@ -356,7 +324,7 @@ function DonutChart({ bookings }: { bookings: Booking[] }) {
               onPointerEnter={() => setHoveredSeg(seg.status)}
               onPointerLeave={() => setHoveredSeg(null)}
             >
-              <span className="size-3 rounded-full" style={{ backgroundColor: seg.color }} />
+              <span className="size-2.5 rounded-full" style={{ backgroundColor: seg.color }} />
               <span className="text-[var(--text-dim)] capitalize">{seg.status}</span>
               <span className="font-semibold text-[var(--text)]">{seg.count}</span>
               <span className="text-[var(--text-dim)]">({pct}%)</span>
@@ -368,16 +336,20 @@ function DonutChart({ bookings }: { bookings: Booking[] }) {
   );
 }
 
-function DayOfWeekChart({ bookings }: { bookings: Booking[] }) {
+function DayOfWeekChart({ bookings, period, cursor }: { bookings: Booking[]; period: Period; cursor: Date }) {
   const data = useMemo(() => {
+    const range = computePeriodRanges(period, cursor);
+    const s = format(range.start, 'yyyy-MM-dd');
+    const e = format(range.end, 'yyyy-MM-dd');
+    const inRange = bookings.filter((b) => b.date >= s && b.date <= e);
     const counts = [0, 0, 0, 0, 0, 0, 0];
-    for (const b of bookings) {
+    for (const b of inRange) {
       const d = getDay(new Date(b.date));
       const idx = d === 0 ? 6 : d - 1;
       counts[idx]++;
     }
     return counts;
-  }, [bookings]);
+  }, [bookings, period, cursor]);
 
   const max = Math.max(...data, 1);
   const busiestIdx = data.indexOf(Math.max(...data));
@@ -385,11 +357,11 @@ function DayOfWeekChart({ bookings }: { bookings: Booking[] }) {
   return (
     <div className="space-y-2">
       {data.map((count, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <span className="w-8 text-right text-[11px] font-medium text-[var(--text-dim)]">{DAY_SHORT[i]}</span>
+        <div key={i} className="flex items-center gap-2.5">
+          <span className="w-8 shrink-0 text-right text-[11px] font-medium text-[var(--text-dim)]">{DAY_SHORT[i]}</span>
           <div className="flex-1 overflow-hidden rounded-full bg-[var(--border)]">
             <div
-              className={`h-5 rounded-full transition-all duration-500 ${
+              className={`h-8 rounded-full transition-all duration-500 ${
                 i === busiestIdx
                   ? 'bg-gradient-to-r from-amber-600 to-amber-400'
                   : 'bg-[var(--button-hover)]'
@@ -397,11 +369,55 @@ function DayOfWeekChart({ bookings }: { bookings: Booking[] }) {
               style={{ width: `${(count / max) * 100}%` }}
             />
           </div>
-          <span className="w-6 text-right text-xs font-medium text-[var(--text)]">{count}</span>
+          <span className="w-6 shrink-0 text-right text-xs font-medium text-[var(--text)]">{count}</span>
         </div>
       ))}
     </div>
   );
+}
+
+function getTrend(current: number, previous: number): { value: number; direction: 'up' | 'down' } | null {
+  if (previous === 0 && current === 0) return null;
+  if (previous === 0) return { value: 100, direction: 'up' };
+  const pct = Math.round(((current - previous) / previous) * 100);
+  if (pct === 0) return null;
+  return { value: Math.abs(pct), direction: pct > 0 ? 'up' : 'down' };
+}
+
+function computePeriodRanges(period: Period, cursor: Date) {
+  if (period === 'week') {
+    const start = startOfWeek(cursor, { weekStartsOn: 1 });
+    const end = endOfWeek(cursor, { weekStartsOn: 1 });
+    const prevStart = subWeeks(start, 1);
+    const prevEnd = subWeeks(end, 1);
+    return { start, end, prevStart, prevEnd, labels: eachDayOfInterval({ start, end }).map((d) => format(d, 'EEE')) };
+  }
+  if (period === 'month') {
+    const start = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const end = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+    const prevStart = subMonths(start, 1);
+    const prevEnd = subMonths(end, 1);
+    const days = getDaysInMonth(cursor);
+    const step = Math.max(1, Math.floor(days / 6));
+    const labs = Array.from({ length: days }, (_, i) => (i % step === 0 ? `${i + 1}` : ''));
+    return { start, end, prevStart, prevEnd, labels: labs };
+  }
+  const start = new Date(cursor.getFullYear(), 0, 1);
+  const end = new Date(cursor.getFullYear(), 11, 31);
+  const prevStart = subYears(start, 1);
+  const prevEnd = subYears(end, 1);
+  return { start, end, prevStart, prevEnd, labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] };
+}
+
+function getPeriodData(period: Period, cursor: Date, bookings: Booking[]) {
+  const range = computePeriodRanges(period, cursor);
+  const currentS = format(range.start, 'yyyy-MM-dd');
+  const currentE = format(range.end, 'yyyy-MM-dd');
+  const prevS = format(range.prevStart, 'yyyy-MM-dd');
+  const prevE = format(range.prevEnd, 'yyyy-MM-dd');
+  const inRange = bookings.filter((b) => b.date >= currentS && b.date <= currentE);
+  const prevInRange = bookings.filter((b) => b.date >= prevS && b.date <= prevE);
+  return { total: inRange.length, prevTotal: prevInRange.length, values: inRange.map(() => 0), labels: [] };
 }
 
 export default function DashboardPage() {
@@ -413,6 +429,59 @@ export default function DashboardPage() {
   const manualToggleRef = useRef(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [now, setNow] = useState(new Date());
+  const [dashboardPeriod, setDashboardPeriod] = useState<Period>('week');
+  const [dashboardCursor, setDashboardCursor] = useState(new Date());
+
+  const periodStats = useMemo(() => {
+    const { total, prevTotal } = getPeriodData(dashboardPeriod, dashboardCursor, bookings);
+    const range = computePeriodRanges(dashboardPeriod, dashboardCursor);
+    const s = format(range.start, 'yyyy-MM-dd');
+    const e = format(range.end, 'yyyy-MM-dd');
+    const ps = format(range.prevStart, 'yyyy-MM-dd');
+    const pe = format(range.prevEnd, 'yyyy-MM-dd');
+    const current = bookings.filter((b) => b.date >= s && b.date <= e);
+    const previous = bookings.filter((b) => b.date >= ps && b.date <= pe);
+    const pending = current.filter((b) => b.status === 'pending').length;
+    const confirmed = current.filter((b) => b.status === 'confirmed').length;
+    const cancelled = current.filter((b) => b.status === 'cancelled').length;
+    const pendingPrev = previous.filter((b) => b.status === 'pending').length;
+    const confirmedPrev = previous.filter((b) => b.status === 'confirmed').length;
+    const cancelledPrev = previous.filter((b) => b.status === 'cancelled').length;
+    return {
+      total, pending, confirmed, cancelled,
+      totalTrend: getTrend(total, prevTotal),
+      pendingTrend: getTrend(pending, pendingPrev),
+      confirmedTrend: getTrend(confirmed, confirmedPrev),
+      cancelledTrend: getTrend(cancelled, cancelledPrev),
+    };
+  }, [dashboardPeriod, dashboardCursor, bookings]);
+
+  const handlePrevPeriod = useCallback(() => {
+    setDashboardCursor((c) => (
+      dashboardPeriod === 'week' ? subWeeks(c, 1)
+        : dashboardPeriod === 'month' ? subMonths(c, 1)
+          : subYears(c, 1)
+    ));
+  }, [dashboardPeriod]);
+
+  const handleNextPeriod = useCallback(() => {
+    const now = new Date();
+    setDashboardCursor((c) => {
+      const next = dashboardPeriod === 'week' ? addWeeks(c, 1)
+        : dashboardPeriod === 'month' ? addMonths(c, 1)
+          : addYears(c, 1);
+      return next > now ? now : next;
+    });
+  }, [dashboardPeriod]);
+
+  const periodNavLabel = useMemo(() => {
+    if (dashboardPeriod === 'week') {
+      const start = startOfWeek(dashboardCursor, { weekStartsOn: 1 });
+      return format(start, 'MMM d, yyyy');
+    }
+    if (dashboardPeriod === 'month') return format(dashboardCursor, 'MMMM yyyy');
+    return `${dashboardCursor.getFullYear()}`;
+  }, [dashboardPeriod, dashboardCursor]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -460,38 +529,42 @@ export default function DashboardPage() {
     }
   };
 
-  const stats = useMemo(() => {
-    const pending = bookings.filter((b) => b.status === 'pending').length;
-    const confirmed = bookings.filter((b) => b.status === 'confirmed').length;
-    const cancelled = bookings.filter((b) => b.status === 'cancelled').length;
-    return { total: bookings.length, pending, confirmed, cancelled };
-  }, [bookings]);
-
-  const recentBookings = useMemo(
-    () => [...bookings].sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`)).slice(0, 5),
-    [bookings],
-  );
+  const recentBookings = useMemo(() => {
+    const range = computePeriodRanges(dashboardPeriod, dashboardCursor);
+    const s = format(range.start, 'yyyy-MM-dd');
+    const e = format(range.end, 'yyyy-MM-dd');
+    return [...bookings]
+      .filter((b) => b.date >= s && b.date <= e)
+      .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))
+      .slice(0, 5);
+  }, [bookings, dashboardPeriod, dashboardCursor]);
 
   const dayOfWeekData = useMemo(() => {
+    const range = computePeriodRanges(dashboardPeriod, dashboardCursor);
+    const s = format(range.start, 'yyyy-MM-dd');
+    const e = format(range.end, 'yyyy-MM-dd');
+    const inRange = bookings.filter((b) => b.date >= s && b.date <= e);
     const counts = [0, 0, 0, 0, 0, 0, 0];
-    for (const b of bookings) {
+    for (const b of inRange) {
       const d = getDay(new Date(b.date));
       const idx = d === 0 ? 6 : d - 1;
       counts[idx]++;
     }
     return counts;
-  }, [bookings]);
+  }, [bookings, dashboardPeriod, dashboardCursor]);
 
   const insights = useMemo(() => {
+    const range = computePeriodRanges(dashboardPeriod, dashboardCursor);
+    const s = format(range.start, 'yyyy-MM-dd');
+    const e = format(range.end, 'yyyy-MM-dd');
+    const period = bookings.filter((b) => b.date >= s && b.date <= e);
     const svcMap = new Map<string, number>();
-    for (const b of bookings) svcMap.set(b.service, (svcMap.get(b.service) || 0) + 1);
+    for (const b of period) svcMap.set(b.service, (svcMap.get(b.service) || 0) + 1);
     const topSvc = [...svcMap.entries()].sort((a, b) => b[1] - a[1])[0];
     const busiestIdx = dayOfWeekData.indexOf(Math.max(...dayOfWeekData));
-    const firstDate = [...bookings].sort((a, b) => a.date.localeCompare(b.date))[0]?.date;
-    const weeksSince = firstDate ? Math.max(1, Math.ceil((now.getTime() - new Date(firstDate).getTime()) / (7 * 86400000))) : 1;
-    const avgWeek = bookings.length > 0 ? (bookings.length / weeksSince).toFixed(1) : '0';
+    const avgWeek = `${period.length}`;
     return { topSvc: topSvc ? { name: topSvc[0], count: topSvc[1] } : null, busiestDay: DAY_SHORT[busiestIdx], avgWeek };
-  }, [bookings, dayOfWeekData, now]);
+  }, [bookings, dashboardPeriod, dashboardCursor, dayOfWeekData]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -531,11 +604,47 @@ export default function DashboardPage() {
               }
             />
 
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-0.5 rounded-lg border border-[var(--border)] p-0.5">
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => { setDashboardPeriod(p.key); setDashboardCursor(new Date()); }}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                      dashboardPeriod === p.key
+                        ? 'bg-[var(--button-hover)] text-[var(--text)]'
+                        : 'text-[var(--text-dim)] hover:text-[var(--text)]'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrevPeriod}
+                  className="flex size-6 items-center justify-center rounded text-[var(--text-dim)] transition-colors hover:bg-[var(--button)] hover:text-[var(--text)]"
+                >
+                  <ChevronLeftIcon className="size-3" />
+                </button>
+                <span className="text-xs font-medium text-[var(--text-muted)]">{periodNavLabel}</span>
+                <button
+                  type="button"
+                  onClick={handleNextPeriod}
+                  className="flex size-6 items-center justify-center rounded text-[var(--text-dim)] transition-colors hover:bg-[var(--button)] hover:text-[var(--text)]"
+                >
+                  <ChevronRightIcon className="size-3" />
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-              <StatCard label="Total Bookings" value={stats.total} icon="calendar" accent="bg-[var(--button)] text-[var(--text-muted)]" href="/admin/schedule" />
-              <StatCard label="Pending" value={stats.pending} icon="pending" accent="bg-amber-900/40 text-amber-300" href="/admin/schedule" />
-              <StatCard label="Confirmed" value={stats.confirmed} icon="check" accent="bg-emerald-900/40 text-emerald-300" href="/admin/schedule" />
-              <StatCard label="Cancelled" value={stats.cancelled} icon="xmark" accent="bg-red-900/40 text-red-300" href="/admin/schedule" />
+              <StatCard label="Total Bookings" value={periodStats.total} icon="calendar" accent="bg-sky-900/40 text-sky-400" href="/admin/schedule" trend={periodStats.totalTrend} />
+              <StatCard label="Pending" value={periodStats.pending} icon="pending" accent="bg-amber-900/40 text-amber-300" href="/admin/schedule" trend={periodStats.pendingTrend} />
+              <StatCard label="Confirmed" value={periodStats.confirmed} icon="check" accent="bg-emerald-900/40 text-emerald-300" href="/admin/schedule" trend={periodStats.confirmedTrend} />
+              <StatCard label="Cancelled" value={periodStats.cancelled} icon="xmark" accent="bg-red-900/40 text-red-300" href="/admin/schedule" trend={periodStats.cancelledTrend} />
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
@@ -544,7 +653,7 @@ export default function DashboardPage() {
                   <CardTitle className="text-sm">Bookings Trend</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <TrendLineChart bookings={bookings} />
+                  <TrendLineChart bookings={bookings} period={dashboardPeriod} cursor={dashboardCursor} />
                 </CardContent>
               </Card>
 
@@ -552,8 +661,8 @@ export default function DashboardPage() {
                 <CardHeader>
                   <CardTitle className="text-sm">Status Breakdown</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <DonutChart bookings={bookings} />
+                <CardContent className="flex items-center justify-center">
+                  <DonutChart bookings={bookings} period={dashboardPeriod} cursor={dashboardCursor} />
                 </CardContent>
               </Card>
             </div>
@@ -572,7 +681,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {recentBookings.length === 0 ? (
-                    <p className="py-4 text-center text-sm text-[var(--text-dim)]">No bookings yet</p>
+                    <p className="py-4 text-center text-sm text-[var(--text-dim)]">No bookings in this period</p>
                   ) : (
                     recentBookings.map((b) => (
                       <div
@@ -603,7 +712,7 @@ export default function DashboardPage() {
                   <CardTitle className="text-sm">Weekly Insights</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <DayOfWeekChart bookings={bookings} />
+                  <DayOfWeekChart bookings={bookings} period={dashboardPeriod} cursor={dashboardCursor} />
                   <div className="flex flex-wrap gap-2 border-t border-[var(--border)] pt-3">
                     {insights.topSvc && (
                       <span className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-[10px] font-medium text-[var(--text-muted)]">
@@ -658,7 +767,7 @@ export default function DashboardPage() {
                 <span className="text-xs text-[var(--text-dim)]">&middot;</span>
                 <p className="text-xs text-[var(--text-dim)]">
                   {bookings.length} total booking{bookings.length !== 1 ? 's' : ''}
-                  {stats.pending > 0 && `, ${stats.pending} pending`}
+                  {periodStats.pending > 0 && `, ${periodStats.pending} pending`}
                 </p>
               </CardContent>
             </Card>

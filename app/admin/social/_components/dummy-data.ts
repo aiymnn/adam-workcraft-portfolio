@@ -84,41 +84,41 @@ const POSTS_BY_PLATFORM: Record<SocialPlatformId, { title: string; metric: strin
 function buildStats(pid: SocialPlatformId): StatCard[] {
   if (pid === 'whatsapp') {
     return [
-      { label: 'Total Chats', value: '2,105', sub: '+128 this month' },
-      { label: 'Messages Sent', value: '23.8K', sub: '+2,847 this month' },
-      { label: 'Broadcast Lists', value: '12', sub: '+3 this month' },
-      { label: 'Response Rate', value: '92%', sub: '+4% vs last month' },
+      { label: 'Total Chats', value: '2,105', rawValue: 2105, sub: '+128 this month' },
+      { label: 'Messages Sent', value: '23.8K', rawValue: 23800, sub: '+2,847 this month' },
+      { label: 'Broadcast Lists', value: '12', rawValue: 12, sub: '+3 this month' },
+      { label: 'Response Rate', value: '92%', rawValue: 92, sub: '+4% vs last month' },
     ];
   }
   if (pid === 'tiktok') {
     return [
-      { label: 'Followers', value: '56.8K', sub: '+3,247 this month' },
-      { label: 'Total Views', value: '2.1M', sub: '+342K this month' },
-      { label: 'Videos Posted', value: '234', sub: '+18 this month' },
-      { label: 'Avg. Watch Time', value: '0:42', sub: '+0:08 vs last month' },
+      { label: 'Followers', value: '56.8K', rawValue: 56800, sub: '+3,247 this month' },
+      { label: 'Total Views', value: '2.1M', rawValue: 2100000, sub: '+342K this month' },
+      { label: 'Videos Posted', value: '234', rawValue: 234, sub: '+18 this month' },
+      { label: 'Avg. Watch Time', value: '0:42', rawValue: 42, sub: '+0:08 vs last month' },
     ];
   }
   if (pid === 'x') {
     return [
-      { label: 'Followers', value: '12.8K', sub: '+412 this month' },
-      { label: 'Total Impressions', value: '284K', sub: '+52K this month' },
-      { label: 'Posts', value: '3,421', sub: '+89 this month' },
-      { label: 'Engagement Rate', value: '4.2%', sub: '+0.8% vs last month' },
+      { label: 'Followers', value: '12.8K', rawValue: 12800, sub: '+412 this month' },
+      { label: 'Total Impressions', value: '284K', rawValue: 284000, sub: '+52K this month' },
+      { label: 'Posts', value: '3,421', rawValue: 3421, sub: '+89 this month' },
+      { label: 'Engagement Rate', value: '4.2%', rawValue: 4.2, sub: '+0.8% vs last month' },
     ];
   }
   if (pid === 'instagram') {
     return [
-      { label: 'Followers', value: '34.3K', sub: '+1,847 this month' },
-      { label: 'Profile Reach', value: '892K', sub: '+214K this month' },
-      { label: 'Posts', value: '892', sub: '+24 this month' },
-      { label: 'Engagement Rate', value: '6.8%', sub: '+1.1% vs last month' },
+      { label: 'Followers', value: '34.3K', rawValue: 34300, sub: '+1,847 this month' },
+      { label: 'Profile Reach', value: '892K', rawValue: 892000, sub: '+214K this month' },
+      { label: 'Posts', value: '892', rawValue: 892, sub: '+24 this month' },
+      { label: 'Engagement Rate', value: '6.8%', rawValue: 6.8, sub: '+1.1% vs last month' },
     ];
   }
   return [
-    { label: 'Followers', value: '8,932', sub: '+521 this month' },
-    { label: 'Total Views', value: '145K', sub: '+28K this month' },
-    { label: 'Threads', value: '567', sub: '+42 this month' },
-    { label: 'Engagement Rate', value: '3.1%', sub: '+0.4% vs last month' },
+    { label: 'Followers', value: '8,932', rawValue: 8932, sub: '+521 this month' },
+    { label: 'Total Views', value: '145K', rawValue: 145000, sub: '+28K this month' },
+    { label: 'Threads', value: '567', rawValue: 567, sub: '+42 this month' },
+    { label: 'Engagement Rate', value: '3.1%', rawValue: 3.1, sub: '+0.4% vs last month' },
   ];
 }
 
