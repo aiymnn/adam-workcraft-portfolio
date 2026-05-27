@@ -1,6 +1,7 @@
 'use client';
 
 import type { FormEvent } from 'react';
+import Link from 'next/link';
 import MagneticButton from '@/components/ui/magnetic-button';
 import { useLanguage } from '@/context/language-context';
 
@@ -78,7 +79,19 @@ export default function Contact() {
           </form>
         </div>
 
-        <div className="mt-12 flex items-center justify-center gap-6 md:mt-16">
+        <div className="mt-10 flex items-center justify-center md:mt-14">
+          <Link
+            href="/submit-review"
+            className="flex items-center gap-1.5 text-xs text-[var(--text-dim)] transition-colors hover:text-amber-200/70"
+          >
+            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Submit a Review
+          </Link>
+        </div>
+
+        <div className="mt-12 flex items-center justify-center gap-6 md:mt-10">
           <a href="#" className="text-[var(--text-dim)] transition-colors hover:text-amber-200/70" aria-label="Twitter / X">
             <svg className="size-5 md:size-6" fill="currentColor" viewBox="0 0 24 24">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />

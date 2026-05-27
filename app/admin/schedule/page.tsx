@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlusIcon, ChevronLeftIcon, ChevronRightIcon, TrendingUpIcon, TrendingDownIcon } from '@/components/shared/icons';
 import NumberFlow from '@number-flow/react';
-import { loadBookings, saveBookings, generateId } from '@/lib/services/bookings';
+import { loadBookings, saveBookings, generateId, generateReviewCode } from '@/lib/services/bookings';
 import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import { useToast } from '@/hooks/use-toast';
 import AdminHeader from '@/components/admin/admin-header';
@@ -23,14 +23,16 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function makeDummyBookings(): Booking[] {
   const today = new Date();
   const yyyyMMdd = (d: Date) => format(d, 'yyyy-MM-dd');
+  const code = (c: string) => ({ reviewCode: c, reviewSubmitted: false });
   return [
-    { id: 'd1', date: yyyyMMdd(today), time: '09:00', name: 'Alice Johnson', email: 'alice@example.com', phone: '+60 12-345 6789', service: 'Brand Consultation', status: 'confirmed', notes: 'Discuss new brand identity for startup launch.' },
-    { id: 'd2', date: yyyyMMdd(today), time: '11:00', name: 'Bob Lee', email: 'bob@example.com', phone: '+60 12-987 6543', service: 'UI/UX Design Review', status: 'pending', notes: 'Review latest Figma mockups before client presentation.' },
-    { id: 'd3', date: yyyyMMdd(today), time: '14:30', name: 'Carol Tan', email: 'carol@example.com', phone: '+60 12-555 1212', service: 'Website Strategy', status: 'cancelled', notes: '' },
-    { id: 'd4', date: yyyyMMdd(addDays(today, 1)), time: '10:30', name: 'David Wong', email: 'david@example.com', phone: '+60 12-444 3333', service: 'Photography Session', status: 'confirmed', notes: 'Product shoot for new collection.' },
-    { id: 'd5', date: yyyyMMdd(addDays(today, 2)), time: '16:00', name: 'Eve Martinez', email: 'eve@example.com', phone: '+60 12-777 8888', service: 'Social Media Audit', status: 'pending', notes: '' },
-    { id: 'd6', date: yyyyMMdd(addDays(today, 3)), time: '09:30', name: 'Frank Lim', email: 'frank@example.com', phone: '+60 12-666 5555', service: 'Brand Consultation', status: 'confirmed', notes: 'Second session.' },
-    { id: 'd7', date: yyyyMMdd(addDays(today, -2)), time: '15:00', name: 'Grace Chen', email: 'grace@example.com', phone: '+60 12-333 2222', service: 'Content Writing', status: 'confirmed', notes: 'Blog post series planning.' },
+    { id: 'd1', date: yyyyMMdd(today), time: '09:00', name: 'Alice Johnson', email: 'alice@example.com', phone: '+60 12-345 6789', service: 'Brand Consultation', status: 'confirmed', notes: 'Discuss new brand identity for startup launch.', ...code('RVW3-A9XK') },
+    { id: 'd2', date: yyyyMMdd(today), time: '11:00', name: 'Bob Lee', email: 'bob@example.com', phone: '+60 12-987 6543', service: 'UI/UX Design Review', status: 'pending', notes: 'Review latest Figma mockups before client presentation.', reviewCode: '', reviewSubmitted: false },
+    { id: 'd3', date: yyyyMMdd(today), time: '14:30', name: 'Carol Tan', email: 'carol@example.com', phone: '+60 12-555 1212', service: 'Website Strategy', status: 'cancelled', notes: '', reviewCode: '', reviewSubmitted: false },
+    { id: 'd8', date: yyyyMMdd(today), time: '16:00', name: 'Diana Rahman', email: 'diana@example.com', phone: '+60 12-888 9999', service: 'Photography Session', status: 'confirmed', notes: 'Engagement shoot.', reviewCode: '', reviewSubmitted: false },
+    { id: 'd4', date: yyyyMMdd(addDays(today, 1)), time: '10:30', name: 'David Wong', email: 'david@example.com', phone: '+60 12-444 3333', service: 'Photography Session', status: 'confirmed', notes: 'Product shoot for new collection.', ...code('BK42-MN78') },
+    { id: 'd5', date: yyyyMMdd(addDays(today, 2)), time: '16:00', name: 'Eve Martinez', email: 'eve@example.com', phone: '+60 12-777 8888', service: 'Social Media Audit', status: 'pending', notes: '', reviewCode: '', reviewSubmitted: false },
+    { id: 'd6', date: yyyyMMdd(addDays(today, 3)), time: '09:30', name: 'Frank Lim', email: 'frank@example.com', phone: '+60 12-666 5555', service: 'Brand Consultation', status: 'confirmed', notes: 'Second session.', reviewCode: 'XK92-MN34', reviewSubmitted: true },
+    { id: 'd7', date: yyyyMMdd(addDays(today, -2)), time: '15:00', name: 'Grace Chen', email: 'grace@example.com', phone: '+60 12-333 2222', service: 'Content Writing', status: 'confirmed', notes: 'Blog post series planning.', reviewCode: '', reviewSubmitted: false },
   ];
 }
 
@@ -386,6 +388,8 @@ export default function SchedulePage() {
         service: formData.service,
         notes: formData.notes,
         status: 'pending',
+        reviewCode: '',
+        reviewSubmitted: false,
       });
     }
     setBookings(newBookings);
@@ -435,6 +439,17 @@ export default function SchedulePage() {
     },
     [closeDialog, toast],
   );
+
+  const handleGenerateReviewCode = useCallback((id: string) => {
+    setBookings((prev) => {
+      const next = prev.map((b) =>
+        b.id === id ? { ...b, reviewCode: generateReviewCode() } : b,
+      );
+      saveBookings(next);
+      return next;
+    });
+    toast.success('Review code generated');
+  }, [toast]);
 
   const selectedDateLabel = useMemo(() => format(selectedDate, 'EEEE, MMMM d, yyyy'), [selectedDate]);
 
@@ -519,6 +534,7 @@ export default function SchedulePage() {
                   onNewBooking={openNewBooking}
                   onEditBooking={openEditBooking}
                   onRequestStatusChange={handleRequestStatusChange}
+                  onGenerateReviewCode={handleGenerateReviewCode}
                 />
               </section>
             </div>

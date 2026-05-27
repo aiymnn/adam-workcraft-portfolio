@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
-import { GridIcon, PersonIcon, CalendarIcon, ShareIcon, ExternalLinkIcon, LogoutIcon, ChevronDownIcon, XIcon } from '@/components/shared/icons';
+import { GridIcon, PersonIcon, CalendarIcon, ShareIcon, FolderIcon, ExternalLinkIcon, LogoutIcon, ChevronDownIcon, XIcon } from '@/components/shared/icons';
 import { SOCIAL_PLATFORMS, type SocialPlatformId, loadProfile } from '@/lib/constants';
 import { logout } from '@/lib/services/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,15 @@ type SidebarItem = {
 const MAIN_ITEMS: SidebarItem[] = [
   { id: 'dashboard', label: 'Dashboard', href: '/admin/dashboard', icon: GridIcon },
   { id: 'scheduling', label: 'Scheduling', href: '/admin/schedule', icon: CalendarIcon },
+  {
+    id: 'gallery',
+    label: 'Gallery',
+    icon: FolderIcon,
+    children: [
+      { id: 'vault', label: 'Personal Vault', href: '/admin/gallery/vault' },
+      { id: 'reviews', label: 'Review Collection', href: '/admin/gallery/reviews' },
+    ],
+  },
   {
     id: 'social',
     label: 'Social Media',
@@ -95,10 +104,17 @@ interface DesktopSidebarProps {
 export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [socialOpen, setSocialOpen] = useState(true);
+  const [openParents, setOpenParents] = useState<Record<string, boolean>>({
+    gallery: true,
+    social: true,
+  });
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState({ name: '', email: '' });
   useEffect(() => { setProfile(loadProfile()); }, []);
+
+  const toggleParent = useCallback((id: string) => {
+    setOpenParents((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
 
   return (
     <aside
@@ -108,11 +124,13 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {MAIN_ITEMS.map((item) => {
           if (item.children) {
-            const parentActive = isActive('/admin/social', pathname);
+            const parentActive = isActive('/admin/' + item.id, pathname);
+            const parentOpen = openParents[item.id] ?? true;
+            const children = item.children;
             return (
               <div key={item.id}>
                 <button
-                  onClick={() => { if (expanded) setSocialOpen((o) => !o); else router.push('/admin/social'); }}
+                  onClick={() => { if (expanded) toggleParent(item.id); else router.push(children[0].href); }}
                   className={`flex w-full items-center rounded-lg py-2 text-sm font-medium transition-colors ${
                     parentActive
                       ? 'bg-[var(--button-hover)] text-[var(--text)]'
@@ -125,12 +143,12 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
                     <>
                       <span className="flex-1 truncate text-left">{item.label}</span>
                       <ChevronDownIcon
-                        className={`size-3 transition-transform duration-200 ${socialOpen ? 'rotate-0' : '-rotate-90'}`}
+                        className={`size-3 transition-transform duration-200 ${parentOpen ? 'rotate-0' : '-rotate-90'}`}
                       />
                     </>
                   )}
                 </button>
-                {expanded && socialOpen && (
+                {expanded && parentOpen && (
                   <div className="ml-2 mt-0.5 space-y-0.5 border-l border-[var(--border)] pl-2">
                     {item.children.map((child) => {
                       const childActive = isActive(child.href, pathname);
@@ -220,7 +238,10 @@ interface MobileSidebarProps {
 export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [socialOpen, setSocialOpen] = useState(true);
+  const [openParents, setOpenParents] = useState<Record<string, boolean>>({
+    gallery: true,
+    social: true,
+  });
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState({ name: '', email: '' });
   useEffect(() => { setProfile(loadProfile()); }, []);
@@ -229,6 +250,10 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
     router.push(href);
     onClose();
   };
+
+  const toggleParent = useCallback((id: string) => {
+    setOpenParents((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
 
   return (
     <>
@@ -254,11 +279,12 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
           {MAIN_ITEMS.map((item) => {
             if (item.children) {
-              const parentActive = isActive('/admin/social', pathname);
+              const parentActive = isActive('/admin/' + item.id, pathname);
+              const parentOpen = openParents[item.id] ?? true;
               return (
                 <div key={item.id}>
                   <button
-                    onClick={() => setSocialOpen((o) => !o)}
+                    onClick={() => toggleParent(item.id)}
                     className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                       parentActive
                         ? 'bg-[var(--button-hover)] text-[var(--text)]'
@@ -268,10 +294,10 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
                     {item.icon && <item.icon />}
                     <span className="flex-1 truncate text-left">{item.label}</span>
                     <ChevronDownIcon
-                      className={`size-3 transition-transform duration-200 ${socialOpen ? 'rotate-0' : '-rotate-90'}`}
+                      className={`size-3 transition-transform duration-200 ${parentOpen ? 'rotate-0' : '-rotate-90'}`}
                     />
                   </button>
-                  {socialOpen && (
+                  {parentOpen && (
                     <div className="ml-4 mt-0.5 space-y-0.5 border-l border-[var(--border)] pl-2">
                       {item.children.map((child) => {
                         const childActive = isActive(child.href, pathname);

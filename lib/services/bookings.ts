@@ -22,7 +22,7 @@ export function saveBookings(bookings: Booking[]) {
 }
 
 export function addBooking(data: Omit<Booking, 'id'>): Booking {
-  const booking: Booking = { id: generateId(), ...data };
+  const booking: Booking = Object.assign({ id: generateId(), reviewCode: '', reviewSubmitted: false }, data);
   const bookings = loadBookings();
   bookings.push(booking);
   saveBookings(bookings);
@@ -48,4 +48,10 @@ export function deleteBooking(id: string): boolean {
 
 export function getBookingsByDate(date: string): Booking[] {
   return loadBookings().filter((b) => b.date === date);
+}
+
+export function generateReviewCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const part = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `${part()}-${part()}`;
 }

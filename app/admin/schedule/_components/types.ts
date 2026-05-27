@@ -10,6 +10,8 @@ export interface Booking {
   service: string;
   status: 'pending' | 'confirmed' | 'cancelled';
   notes: string;
+  reviewCode: string;
+  reviewSubmitted: boolean;
 }
 
 export interface FormData {

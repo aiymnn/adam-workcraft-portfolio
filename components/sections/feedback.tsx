@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useLanguage } from '@/context/language-context';
+import SubmitReviewModal from '@/components/ui/submit-review-modal';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -191,6 +192,7 @@ export default function Feedback() {
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const [lightbox, setLightbox] = useState<{ items: ReviewMedia[]; index: number } | null>(null);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -260,6 +262,18 @@ export default function Feedback() {
             </div>
           ))}
         </div>
+
+        <div className="mt-12 text-center md:mt-16">
+          <button
+            onClick={() => setReviewModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--button-hover)] bg-[var(--button)] px-8 py-3 text-sm font-medium text-amber-200/90 transition-colors hover:border-amber-700/50 hover:bg-[var(--button-hover)] md:px-10 md:py-3.5"
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Share Your Experience
+          </button>
+        </div>
       </div>
 
       {lightbox && (
@@ -270,6 +284,8 @@ export default function Feedback() {
           onIndexChange={(i) => setLightbox((prev) => prev ? { ...prev, index: i } : null)}
         />
       )}
+
+      <SubmitReviewModal open={reviewModalOpen} onClose={() => setReviewModalOpen(false)} />
     </section>
   );
 }
