@@ -5,7 +5,7 @@ export interface VaultCollection {
   thumb: string;
   media: string[];
   isVideo?: boolean;
-  videoUrl?: string;
+  videos?: string[];
   columnSpan: number;
   rowSpan: number;
   order: number;
@@ -39,7 +39,7 @@ function seedData(): VaultCollection[] {
       thumb: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1000',
       media: ['https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1200'],
       isVideo: true,
-      videoUrl: '/video-dummy.mp4',
+      videos: ['/video-dummy.mp4', '/video-dummy.mp4'],
       columnSpan: 1,
       rowSpan: 1,
       order: 1,
@@ -65,7 +65,7 @@ function seedData(): VaultCollection[] {
       thumb: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1000',
       media: ['https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1200'],
       isVideo: true,
-      videoUrl: '/video-dummy.mp4',
+      videos: ['/video-dummy.mp4', '/video-dummy.mp4', '/video-dummy.mp4'],
       columnSpan: 1,
       rowSpan: 1,
       order: 3,

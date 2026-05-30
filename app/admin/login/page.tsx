@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { useAdminTheme } from '@/context/admin-theme-context';
 import { SunIcon, MoonIcon, ChevronLeftIcon } from '@/components/shared/icons';
 import { login, isAuthenticated, getLastPage } from '@/lib/services/auth';
@@ -19,6 +18,11 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [shaking, setShaking] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && isAuthenticated()) {
@@ -47,13 +51,15 @@ export default function AdminLogin() {
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-12">
-      <button
-        onClick={toggleTheme}
-        className="absolute right-4 top-4 flex size-8 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
-        aria-label="Toggle theme"
-      >
-        {theme === 'light' ? <MoonIcon /> : <SunIcon />}
-      </button>
+      {mounted && (
+        <button
+          onClick={toggleTheme}
+          className="absolute right-4 top-4 flex size-8 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
+          aria-label="Toggle theme"
+        >
+          {theme === 'light' ? <MoonIcon /> : <SunIcon />}
+        </button>
+      )}
 
       <div className={`w-full max-w-sm ${shaking ? 'animate-shake' : 'animate-fade-in'}`}>
         <Card>

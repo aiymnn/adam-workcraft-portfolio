@@ -193,7 +193,7 @@ const EMPTY_FORM: VaultCollection = {
   thumb: '',
   media: [],
   isVideo: false,
-  videoUrl: '',
+  videos: [],
   columnSpan: 1,
   rowSpan: 1,
   order: 0,
@@ -308,13 +308,42 @@ function EditDialog({ open, item, onSave, onClose }: EditDialogProps) {
 
           {form.isVideo && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-[var(--text-dim)]">Video URL</label>
-              <input
-                value={form.videoUrl || ''}
-                onChange={(e) => setForm((prev) => ({ ...prev, videoUrl: e.target.value }))}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30"
-                placeholder="/video-dummy.mp4"
-              />
+              <label className="mb-1 block text-xs font-medium text-[var(--text-dim)]">
+                Videos ({form.videos?.length ?? 0})
+              </label>
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--button)] p-2">
+                {(form.videos ?? []).map((url, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input
+                      value={url}
+                      onChange={(e) => {
+                        const next = [...(form.videos ?? [])];
+                        next[i] = e.target.value;
+                        setForm((prev) => ({ ...prev, videos: next }));
+                      }}
+                      className="min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--bg-start)] px-2.5 py-1.5 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30"
+                      placeholder="/video.mp4"
+                    />
+                    <button
+                      onClick={() => {
+                        const next = (form.videos ?? []).filter((_, j) => j !== i);
+                        setForm((prev) => ({ ...prev, videos: next }));
+                      }}
+                      className="flex shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--button)] px-2 text-[var(--text-dim)] transition-colors hover:bg-red-900/40 hover:text-red-300"
+                      title="Remove video"
+                    >
+                      <XIcon className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setForm((prev) => ({ ...prev, videos: [...(prev.videos ?? []), ''] }))}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-[var(--border)] bg-transparent px-3 py-2 text-xs font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--button-hover)] hover:text-[var(--text)]"
+                >
+                  <PlusIcon className="size-3.5" />
+                  Add Video
+                </button>
+              </div>
             </div>
           )}
 

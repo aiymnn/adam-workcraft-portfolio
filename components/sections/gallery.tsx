@@ -14,7 +14,7 @@ export interface CollectionItem {
   thumb: string;
   media: string[];
   isVideo?: boolean;
-  videoUrl?: string;
+  videos?: string[];
 }
 
 const COLLECTIONS: CollectionItem[] = [
@@ -35,7 +35,7 @@ const COLLECTIONS: CollectionItem[] = [
     thumb: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1000',
     media: ['https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1200'],
     isVideo: true,
-    videoUrl: '/video-dummy.mp4',
+    videos: ['/video-dummy.mp4', '/video-dummy.mp4'],
   },
   {
     id: 'corporate-1',
@@ -55,7 +55,7 @@ const COLLECTIONS: CollectionItem[] = [
     thumb: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1000',
     media: ['https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1200'],
     isVideo: true,
-    videoUrl: '/video-dummy.mp4',
+    videos: ['/video-dummy.mp4', '/video-dummy.mp4', '/video-dummy.mp4'],
   },
   {
     id: 'wedding-2',
@@ -96,7 +96,6 @@ interface GalleryProps {
 function GalleryCard({ item, onOpenCollection, layoutClass }: { item: CollectionItem; onOpenCollection: (c: CollectionItem) => void; layoutClass: string }) {
   const { t } = useLanguage();
   const cardRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const images = !item.isVideo ? [item.thumb, ...item.media] : [item.thumb];
   const [currentSrc, setCurrentSrc] = useState(images[0] || '');
   const [outgoingSrc, setOutgoingSrc] = useState<string | null>(null);
@@ -105,17 +104,24 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
   const visibleRef = useRef(false);
   const hoverRef = useRef(false);
 
+  const videoSources = item.videos ?? [];
+  const videoARef = useRef<HTMLVideoElement>(null);
+  const videoBRef = useRef<HTMLVideoElement>(null);
+  const activeRef = useRef<'a' | 'b'>('a');
+  const videoIdxRef = useRef(0);
+
   const catLabel = (cat: string) => cat === 'Photography' ? t.gallery.photography : t.gallery.videography;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         visibleRef.current = entry.isIntersecting;
-        if (item.isVideo && videoRef.current) {
+        if (item.isVideo) {
+          const el = activeRef.current === 'a' ? videoARef.current : videoBRef.current;
           if (entry.isIntersecting) {
-            videoRef.current.play().catch(() => {});
+            el?.play().catch(() => {});
           } else {
-            videoRef.current.pause();
+            el?.pause();
           }
         }
       },
@@ -139,6 +145,55 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [item.isVideo, images]);
+
+  useEffect(() => {
+    if (!item.isVideo || !videoSources.length) return;
+
+    const init = () => {
+      if (videoARef.current) {
+        videoARef.current.src = videoSources[0];
+        videoARef.current.load();
+      }
+      if (videoBRef.current) {
+        videoBRef.current.src = videoSources[videoSources.length > 1 ? 1 : 0];
+      }
+      videoIdxRef.current = 0;
+      activeRef.current = 'a';
+      gsap.set(videoARef.current, { opacity: 1 });
+      gsap.set(videoBRef.current, { opacity: 0 });
+      if (visibleRef.current) {
+        videoARef.current?.play().catch(() => {});
+      }
+    };
+    init();
+  }, [item.isVideo, videoSources]);
+
+  useEffect(() => {
+    if (!item.isVideo || videoSources.length <= 1) return;
+
+    intervalRef.current = setInterval(() => {
+      if (!visibleRef.current || hoverRef.current) return;
+
+      const nextIdx = (videoIdxRef.current + 1) % videoSources.length;
+      const isAActive = activeRef.current === 'a';
+      const fromEl = isAActive ? videoARef.current : videoBRef.current;
+      const toEl = isAActive ? videoBRef.current : videoARef.current;
+      if (!fromEl || !toEl) return;
+
+      toEl.src = videoSources[nextIdx];
+      toEl.load();
+      toEl.currentTime = 0;
+      toEl.play().catch(() => {});
+
+      gsap.to(fromEl, { opacity: 0, duration: 0.5, ease: 'power2.inOut' });
+      gsap.to(toEl, { opacity: 1, duration: 0.5, ease: 'power2.inOut' });
+
+      videoIdxRef.current = nextIdx;
+      activeRef.current = isAActive ? 'b' : 'a';
+    }, 15000);
+
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [item.isVideo, videoSources]);
 
   useEffect(() => {
     if (!outgoingSrc) return;
@@ -166,14 +221,22 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
       style={{ touchAction: 'manipulation' }}
     >
       {item.isVideo ? (
-        <video
-          ref={videoRef}
-          muted
-          loop
-          playsInline
-          src={item.videoUrl}
-          className="absolute inset-0 size-full object-cover"
-        />
+        <div className="absolute inset-0">
+          <video
+            ref={videoARef}
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 size-full object-cover"
+          />
+          <video
+            ref={videoBRef}
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 size-full object-cover"
+          />
+        </div>
       ) : (
         <div className="absolute inset-0">
           {outgoingSrc && (

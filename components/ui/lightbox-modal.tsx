@@ -11,7 +11,7 @@ interface CollectionItem {
   thumb: string;
   media: string[];
   isVideo?: boolean;
-  videoUrl?: string;
+  videos?: string[];
 }
 
 interface LightboxModalProps {
@@ -38,9 +38,9 @@ export default function LightboxModal({ isOpen, collection, onClose }: LightboxM
   }, [onClose]);
 
   const navigate = useCallback((dir: 'prev' | 'next') => {
-    if (!collection || collection.isVideo || !mediaRef.current) return;
-    const total = collection.media.length;
+    if (!collection || !mediaRef.current) return;
     const isNext = dir === 'next';
+    const total = collection.isVideo ? (collection.videos?.length ?? 1) : collection.media.length;
 
     gsap.to(mediaRef.current, {
       opacity: 0,
@@ -62,7 +62,13 @@ export default function LightboxModal({ isOpen, collection, onClose }: LightboxM
   }, [collection]);
 
   useEffect(() => {
-    if (!mediaRef.current || collection?.isVideo) return;
+    if (isOpen && collection?.isVideo) {
+      setVideoPlaying(false);
+    }
+  }, [mediaIndex]);
+
+  useEffect(() => {
+    if (!mediaRef.current) return;
     gsap.set(mediaRef.current, { x: 0 });
     gsap.fromTo(mediaRef.current, { opacity: 0, x: 0 }, { opacity: 1, x: 0, duration: 0.35, ease: 'power2.out' });
   }, [mediaIndex, collection]);
@@ -116,8 +122,9 @@ export default function LightboxModal({ isOpen, collection, onClose }: LightboxM
   if (!isOpen || !collection) return null;
 
   const isVideo = collection.isVideo;
-  const total = collection.media.length;
-  const currentSrc = collection.media[mediaIndex];
+  const mediaSources = isVideo ? (collection.videos ?? []) : collection.media;
+  const total = mediaSources.length;
+  const currentSrc = mediaSources[mediaIndex];
 
   return (
     <div
@@ -140,42 +147,64 @@ export default function LightboxModal({ isOpen, collection, onClose }: LightboxM
         </button>
 
         {isVideo ? (
-          <div className="relative w-full max-w-[90vw] md:max-w-[80vw]">
-            <div ref={videoWrapRef} className="aspect-video w-full">
-              <video
-                ref={videoRef}
-                className="size-full rounded-lg object-cover"
-                src={collection.videoUrl}
-                onEnded={() => setVideoPlaying(false)}
-              />
-            </div>
-            <button
-              onClick={() => {
-                const el = videoWrapRef.current;
-                if (el) {
-                  if (document.fullscreenElement) document.exitFullscreen();
-                  else el.requestFullscreen();
-                }
-              }}
-              className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded border border-[var(--border)] bg-black/60 text-[var(--text-muted)] transition-colors hover:text-white md:size-9"
-              title="Fullscreen"
-            >
-              <svg className="size-5 md:size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8V3m0 0h5M3 3l6 6m12 0V3m0 0h-5m5 0l-6 6M3 16v5m0 0h5m-5 0l6-6m12 5v-5m0 5h-5m5 0l-6-6" />
-              </svg>
-            </button>
-            {!videoPlaying && (
+          <div className="relative flex w-full max-w-[90vw] items-center md:max-w-[80vw]">
+            {total > 1 && (
               <button
-                onClick={handlePlayVideo}
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                onClick={() => navigate('prev')}
+                className="absolute -left-3 z-10 flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] transition-colors hover:border-amber-700/50 hover:text-amber-200/80 md:-left-6 md:size-12"
               >
-                <div ref={playBtnRef} className="relative flex size-16 items-center justify-center md:size-20">
-                  <div className="relative flex size-full items-center justify-center rounded-full border border-stone-100/30 bg-stone-100/10 backdrop-blur-md transition-transform hover:scale-110">
-                    <svg className="size-7 text-white/80 md:size-8" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 6v12l12-6z" />
-                    </svg>
+                <svg className="size-4 md:size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <div ref={mediaRef} className="relative w-full">
+              <div ref={videoWrapRef} className="aspect-video w-full">
+                <video
+                  ref={videoRef}
+                  className="size-full rounded-lg object-cover"
+                  src={currentSrc}
+                  onEnded={() => setVideoPlaying(false)}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  const el = videoWrapRef.current;
+                  if (el) {
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    else el.requestFullscreen();
+                  }
+                }}
+                className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded border border-[var(--border)] bg-black/60 text-[var(--text-muted)] transition-colors hover:text-white md:size-9"
+                title="Fullscreen"
+              >
+                <svg className="size-5 md:size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8V3m0 0h5M3 3l6 6m12 0V3m0 0h-5m5 0l-6 6M3 16v5m0 0h5m-5 0l6-6m12 5v-5m0 5h-5m5 0l-6-6" />
+                </svg>
+              </button>
+              {!videoPlaying && (
+                <button
+                  onClick={handlePlayVideo}
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                >
+                  <div ref={playBtnRef} className="relative flex size-16 items-center justify-center md:size-20">
+                    <div className="relative flex size-full items-center justify-center rounded-full border border-stone-100/30 bg-stone-100/10 backdrop-blur-md transition-transform hover:scale-110">
+                      <svg className="size-7 text-white/80 md:size-8" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 6v12l12-6z" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
+                </button>
+              )}
+            </div>
+            {total > 1 && (
+              <button
+                onClick={() => navigate('next')}
+                className="absolute -right-3 z-10 flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] transition-colors hover:border-amber-700/50 hover:text-amber-200/80 md:-right-6 md:size-12"
+              >
+                <svg className="size-4 md:size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             )}
           </div>
