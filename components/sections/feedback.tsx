@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useLanguage } from '@/context/language-context';
@@ -97,10 +98,10 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: { items: Revie
 
   const showNav = items.length > 1;
 
-  return (
+  const modal = (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 p-4"
       onClick={handleClose}
     >
       <div
@@ -186,6 +187,8 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: { items: Revie
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
 
 export default function Feedback() {

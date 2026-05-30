@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import gsap from 'gsap';
 import { loadBookings } from '@/lib/services/bookings';
@@ -14,6 +15,7 @@ export default function SubmitReviewModal({ open, onClose }: SubmitReviewModalPr
   const router = useRouter();
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const handleVerifyRef = useRef<() => void>(() => {});
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -40,55 +42,57 @@ export default function SubmitReviewModal({ open, onClose }: SubmitReviewModalPr
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') handleClose();
-      if (e.key === 'Enter') handleVerify();
+      if (e.key === 'Enter') handleVerifyRef.current();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [open, handleClose]);
 
-  const handleVerify = useCallback(() => {
-    const trimmedEmail = email.trim().toLowerCase();
-    const trimmedCode = code.trim().toUpperCase();
+  useEffect(() => {
+    handleVerifyRef.current = () => {
+      const trimmedEmail = email.trim().toLowerCase();
+      const trimmedCode = code.trim().toUpperCase();
 
-    if (!trimmedEmail) { setError('Please enter your email address.'); return; }
-    if (!trimmedCode) { setError('Please enter your review code.'); return; }
+      if (!trimmedEmail) { setError('Please enter your email address.'); return; }
+      if (!trimmedCode) { setError('Please enter your review code.'); return; }
 
-    setVerifying(true);
-    setError('');
+      setVerifying(true);
+      setError('');
 
-    const bookings = loadBookings();
-    const found = bookings.find(
-      (b) => b.email.toLowerCase() === trimmedEmail && b.reviewCode === trimmedCode,
-    );
+      const bookings = loadBookings();
+      const found = bookings.find(
+        (b) => b.email.toLowerCase() === trimmedEmail && b.reviewCode === trimmedCode,
+      );
 
-    if (!found) {
-      setError('No booking found with this email and code combination.');
+      if (!found) {
+        setError('No booking found with this email and code combination.');
+        setVerifying(false);
+        return;
+      }
+
+      if (found.reviewSubmitted) {
+        setError('A review has already been submitted for this booking.');
+        setVerifying(false);
+        return;
+      }
+
       setVerifying(false);
-      return;
-    }
-
-    if (found.reviewSubmitted) {
-      setError('A review has already been submitted for this booking.');
-      setVerifying(false);
-      return;
-    }
-
-    setVerifying(false);
-    onClose();
-    router.push(`/submit-review?code=${trimmedCode}`);
+      onClose();
+      router.push(`/submit-review?code=${trimmedCode}`);
+    };
   }, [email, code, onClose, router]);
 
   if (!open) return null;
 
-  return (
+  const modal = (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onClick={handleClose}
     >
       <div
         ref={panelRef}
-        className="w-full rounded-t-xl border border-[var(--border)] bg-[var(--bg-mid)] p-6 shadow-2xl sm:mx-4 sm:max-w-md sm:rounded-xl"
+        className="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--bg-mid)] p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-6 flex items-start justify-between">
@@ -146,7 +150,7 @@ export default function SubmitReviewModal({ open, onClose }: SubmitReviewModalPr
 
         <div className="mt-6">
           <button
-            onClick={handleVerify}
+            onClick={() => handleVerifyRef.current()}
             disabled={verifying}
             className="w-full rounded-lg bg-[var(--text)] px-4 py-2.5 text-sm font-medium text-[var(--bg-end)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -156,4 +160,6 @@ export default function SubmitReviewModal({ open, onClose }: SubmitReviewModalPr
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
