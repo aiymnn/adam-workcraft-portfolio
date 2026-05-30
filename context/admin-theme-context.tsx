@@ -7,6 +7,7 @@ type AdminTheme = 'light' | 'dark';
 interface AdminThemeContextType {
   theme: AdminTheme;
   toggleTheme: () => void;
+  mounted: boolean;
 }
 
 const AdminThemeContext = createContext<AdminThemeContextType | null>(null);
@@ -53,7 +54,7 @@ export function AdminThemeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AdminThemeContext.Provider value={{ theme, toggleTheme }}>
+    <AdminThemeContext.Provider value={{ theme, toggleTheme, mounted }}>
       <div
         className={`min-h-screen bg-[var(--bg-end)] text-[var(--text)] transition-colors duration-300 ${mounted ? '' : ''}`}
       >
