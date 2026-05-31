@@ -14,8 +14,8 @@ import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar'
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
 import { SocialLinksLoadingSkeleton } from '@/components/admin/loading';
 import { AdminSearchFilterBar, AdminSummaryGrid } from '@/components/admin/shared/admin-insights-ui';
-import { fetchAdminSocialLinks, saveAdminSocialLinks } from '@/lib/services/admin-social-links';
-import type { PublicSocialLinks } from '@/types/content';
+import { fetchAdminSocialLinks, fetchAdminSocialLinkVisibility, saveAdminSocialLinks } from '@/lib/services/admin-social-links';
+import type { PublicSocialLinks, PublicSocialLinksVisibility } from '@/types/content';
 
 const SOCIAL_FILTER_OPTIONS = [
   { id: 'all', label: 'All' },
@@ -32,6 +32,7 @@ export default function SocialPage() {
   const manualToggleRef = useRef(false);
 
   const [links, setLinks] = useState<PublicSocialLinks>({ x: '', instagram: '', threads: '', tiktok: '', whatsapp: '' });
+  const [visibility, setVisibility] = useState<PublicSocialLinksVisibility>({ x: true, instagram: true, threads: true, tiktok: true, whatsapp: true });
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [connectionFilter, setConnectionFilter] = useState<'all' | 'connected' | 'missing'>('all');
@@ -50,9 +51,13 @@ export default function SocialPage() {
 
     const init = async () => {
       try {
-        const rows = await fetchAdminSocialLinks();
+        const [rows, visibilityRows] = await Promise.all([
+          fetchAdminSocialLinks(),
+          fetchAdminSocialLinkVisibility(),
+        ]);
         if (!active) return;
         setLinks(rows);
+        setVisibility(visibilityRows);
       } catch (error) {
         if (!active) return;
         toast.error(error instanceof Error ? error.message : 'Failed to load social links');
@@ -102,8 +107,9 @@ export default function SocialPage() {
 
   const handleSave = async () => {
     try {
-      const savedLinks = await saveAdminSocialLinks(links);
-      setLinks(savedLinks);
+      const savedState = await saveAdminSocialLinks(links, visibility);
+      setLinks(savedState.links);
+      setVisibility(savedState.visibility);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       toast.success('All links saved');
@@ -115,13 +121,15 @@ export default function SocialPage() {
   const socialStats = useMemo(() => {
     const total = SOCIAL_PLATFORMS.length;
     const connected = SOCIAL_PLATFORMS.filter((platform) => (links[platform.id] || '').trim().length > 0).length;
+    const visible = SOCIAL_PLATFORMS.filter((platform) => visibility[platform.id]).length;
     const missing = total - connected;
     return {
       total,
       connected,
+      visible,
       missing,
     };
-  }, [links]);
+  }, [links, visibility]);
 
   const filteredPlatforms = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -187,6 +195,7 @@ export default function SocialPage() {
                   items={[
                     { label: 'Total Platforms', value: socialStats.total },
                     { label: 'Connected', value: socialStats.connected },
+                    { label: 'Visible', value: socialStats.visible },
                     { label: 'Missing', value: socialStats.missing },
                     { label: 'Completion', value: socialStats.total > 0 ? Math.round((socialStats.connected / socialStats.total) * 100) : 0 },
                   ]}
@@ -215,6 +224,7 @@ export default function SocialPage() {
                             <CardTitle className="text-sm">{platform.label}</CardTitle>
                             <div className="flex gap-1">
                               <button
+                                type="button"
                                 onClick={() => router.push(`/admin/social/${platform.id}`)}
                                 className="flex size-7 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
                                 title="Edit on separate page"
@@ -236,12 +246,25 @@ export default function SocialPage() {
                           </div>
                           <CardDescription>Enter your {platform.label} profile URL</CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-3">
                           <Input
                             value={links[platform.id] || ''}
                             onChange={(e) => setLinks((prev) => ({ ...prev, [platform.id]: e.target.value }))}
                             placeholder="https://..."
                           />
+                          <button
+                            type="button"
+                            aria-pressed={visibility[platform.id]}
+                            onClick={() => setVisibility((prev) => ({ ...prev, [platform.id]: !prev[platform.id] }))}
+                            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors ${visibility[platform.id] ? 'border-emerald-700/40 bg-emerald-950/20 text-emerald-200' : 'border-[var(--border)] bg-[var(--button)] text-[var(--text-dim)] hover:text-[var(--text)]'}`}
+                          >
+                            <span className="text-xs font-medium uppercase tracking-[0.18em]">
+                              {visibility[platform.id] ? 'Visible on landing' : 'Hidden from landing'}
+                            </span>
+                            <span className={`relative h-5 w-10 rounded-full transition-colors ${visibility[platform.id] ? 'bg-emerald-500/30' : 'bg-stone-700/60'}`}>
+                              <span className={`absolute top-0.5 size-4 rounded-full bg-current transition-transform ${visibility[platform.id] ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                            </span>
+                          </button>
                         </CardContent>
                       </Card>
                     ))}

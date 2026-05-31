@@ -4,8 +4,13 @@ import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import gsap from 'gsap';
 import { useLanguage } from '@/context/language-context';
+import type { PublicAdminProfile } from '@/types/content';
 
-export default function Hero() {
+interface HeroProps {
+  profile: PublicAdminProfile;
+}
+
+export default function Hero({ profile }: HeroProps) {
   const { t } = useLanguage();
   const containerRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -140,8 +145,8 @@ export default function Hero() {
               </svg>
             </div>
             <Image
-              src="/person-2.png"
-              alt={t.hero.name}
+              src={profile.avatarUrl}
+              alt={profile.name || t.hero.name}
               fill
               priority
               sizes="(max-width: 768px) 256px, 320px"

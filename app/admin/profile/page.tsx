@@ -155,10 +155,39 @@ export default function ProfilePage() {
   }, [router]);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setProfile(loadProfile());
-    });
-    return () => window.cancelAnimationFrame(frame);
+    let active = true;
+
+    const load = async () => {
+      try {
+        const response = await fetch('/api/admin/profile', {
+          method: 'GET',
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load profile');
+        }
+
+        const payload = (await response.json()) as { success?: boolean; profile?: AdminProfile };
+        if (!active || !payload.profile) return;
+
+        setProfile(payload.profile);
+        saveProfile(payload.profile);
+        return;
+      } catch {
+        if (!active) return;
+      }
+
+      const fallbackProfile = loadProfile();
+      setProfile(fallbackProfile);
+      saveProfile(fallbackProfile);
+    };
+
+    void load();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -197,7 +226,22 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSaveProfile = () => {
+  const syncProfileToServer = async (nextProfile: AdminProfile): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/admin/profile', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(nextProfile),
+      });
+
+      return response.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleSaveProfile = async () => {
     const nextName = profile.name.trim();
     const nextEmail = profile.email.trim().toLowerCase();
 
@@ -220,9 +264,15 @@ export default function ProfilePage() {
 
     setProfile(nextProfile);
     saveProfile(nextProfile);
+
+    const synced = await syncProfileToServer(nextProfile);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    toast.success('Profile updated');
+    if (synced) {
+      toast.success('Profile updated');
+    } else {
+      toast.error('Profile updated locally, but database sync failed');
+    }
   };
 
   const handleOpenAvatarPicker = () => {
@@ -309,10 +359,11 @@ export default function ProfilePage() {
 
       setProfile(updatedProfile);
       saveProfile(updatedProfile);
+      const synced = await syncProfileToServer(updatedProfile);
       if (previousFileId && payload.previousFileDeleted) {
-        toast.success('Profile image updated and previous image removed');
+        toast[synced ? 'success' : 'error'](synced ? 'Profile image updated and previous image removed' : 'Profile image updated locally, but database sync failed');
       } else {
-        toast.success('Profile image updated');
+        toast[synced ? 'success' : 'error'](synced ? 'Profile image updated' : 'Profile image updated locally, but database sync failed');
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to upload profile image';
@@ -340,9 +391,10 @@ export default function ProfilePage() {
 
     setProfile(updatedProfile);
     saveProfile(updatedProfile);
+    const synced = await syncProfileToServer(updatedProfile);
 
     if (!previousFileId) {
-      toast.success('Profile image reset');
+      toast[synced ? 'success' : 'error'](synced ? 'Profile image reset' : 'Profile image reset locally, but database sync failed');
       return;
     }
 
@@ -351,9 +403,9 @@ export default function ProfilePage() {
     setResettingAvatar(false);
 
     if (deleted) {
-      toast.success('Profile image reset and previous image removed');
+      toast[synced ? 'success' : 'error'](synced ? 'Profile image reset and previous image removed' : 'Profile image reset locally, but database sync failed');
     } else {
-      toast.success('Profile image reset');
+      toast[synced ? 'success' : 'error'](synced ? 'Profile image reset' : 'Profile image reset locally, but database sync failed');
       toast.error('Could not remove previous Drive image automatically');
     }
   };

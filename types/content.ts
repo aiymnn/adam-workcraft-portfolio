@@ -32,6 +32,20 @@ export interface PublicSocialLinks {
   whatsapp: string;
 }
 
+export interface PublicSocialLinksVisibility {
+  x: boolean;
+  instagram: boolean;
+  threads: boolean;
+  tiktok: boolean;
+  whatsapp: boolean;
+}
+
+export interface PublicAdminProfile {
+  name: string;
+  email: string;
+  avatarUrl: string;
+}
+
 export interface VaultCategoryItem {
   id: string;
   name: string;

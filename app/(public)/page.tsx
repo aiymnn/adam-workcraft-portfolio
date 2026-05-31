@@ -12,10 +12,13 @@ import LightboxModal from '@/components/ui/lightbox-modal';
 import Feedback from '@/components/sections/feedback';
 import Contact from '@/components/sections/contact';
 import LandingPageLoader from '@/components/ui/landing-page-loader';
+import { DEFAULT_PROFILE } from '@/lib/constants';
+import { fetchPublicAdminProfile } from '@/lib/services/public-content';
+import type { PublicAdminProfile } from '@/types/content';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const REQUIRED_DATA_SECTIONS = ['about', 'gallery', 'feedback', 'contact'] as const;
+const REQUIRED_DATA_SECTIONS = ['hero', 'about', 'gallery', 'feedback', 'contact'] as const;
 type LandingDataSection = (typeof REQUIRED_DATA_SECTIONS)[number];
 
 export default function Home() {
@@ -23,6 +26,7 @@ export default function Home() {
   const visitTrackedRef = useRef(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [activeCollection, setActiveCollection] = useState<CollectionItem | null>(null);
+  const [publicProfile, setPublicProfile] = useState<PublicAdminProfile>(DEFAULT_PROFILE);
   const [pendingDataSections, setPendingDataSections] = useState<Set<LandingDataSection>>(
     () => new Set(REQUIRED_DATA_SECTIONS),
   );
@@ -50,6 +54,27 @@ export default function Home() {
     const timer = window.setTimeout(() => setMinimumLoaderElapsed(true), 700);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProfile = async () => {
+      try {
+        const profile = await fetchPublicAdminProfile();
+        if (!active) return;
+        setPublicProfile(profile);
+      } finally {
+        if (active) {
+          handleSectionDataReady('hero');
+        }
+      }
+    };
+
+    void loadProfile();
+    return () => {
+      active = false;
+    };
+  }, [handleSectionDataReady]);
 
   useEffect(() => {
     if (visitTrackedRef.current) return;
@@ -129,26 +154,29 @@ export default function Home() {
         totalCount={REQUIRED_DATA_SECTIONS.length}
       />
       <main ref={mainRef}>
-      <Navbar />
-      <Hero />
-      <About onInitialDataReady={() => handleSectionDataReady('about')} />
-      <div id="gallery">
-        <Gallery
-          onOpenCollection={handleOpenCollection}
-          onInitialDataReady={() => handleSectionDataReady('gallery')}
+        <Navbar />
+        <Hero profile={publicProfile} />
+        <About onInitialDataReady={() => handleSectionDataReady('about')} />
+        <div id="gallery">
+          <Gallery
+            onOpenCollection={handleOpenCollection}
+            onInitialDataReady={() => handleSectionDataReady('gallery')}
+          />
+        </div>
+        <div id="reviews">
+          <Feedback onInitialDataReady={() => handleSectionDataReady('feedback')} />
+        </div>
+        <div id="connect">
+          <Contact
+            contactEmail={publicProfile.email}
+            onInitialDataReady={() => handleSectionDataReady('contact')}
+          />
+        </div>
+        <LightboxModal
+          isOpen={lightboxOpen}
+          collection={activeCollection}
+          onClose={handleCloseLightbox}
         />
-      </div>
-      <div id="reviews">
-        <Feedback onInitialDataReady={() => handleSectionDataReady('feedback')} />
-      </div>
-      <div id="connect">
-        <Contact onInitialDataReady={() => handleSectionDataReady('contact')} />
-      </div>
-      <LightboxModal
-        isOpen={lightboxOpen}
-        collection={activeCollection}
-        onClose={handleCloseLightbox}
-      />
       </main>
     </>
   );

@@ -8,6 +8,20 @@ interface SessionPayload {
   exp: number;
 }
 
+function decodeSessionPayload(token: string): SessionPayload | null {
+  const [payloadEncoded] = token.split('.');
+  if (!payloadEncoded) return null;
+
+  try {
+    const payloadJson = new TextDecoder().decode(base64UrlToBytes(payloadEncoded));
+    const payload = JSON.parse(payloadJson) as SessionPayload;
+    if (!payload.u || !payload.exp) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) {
@@ -64,11 +78,14 @@ export async function verifyAdminSessionToken(token: string, secret: string): Pr
   if (signature !== expectedSignature) return false;
 
   try {
-    const payloadJson = new TextDecoder().decode(base64UrlToBytes(payloadEncoded));
-    const payload = JSON.parse(payloadJson) as SessionPayload;
-    if (!payload.u || !payload.exp) return false;
+    const payload = decodeSessionPayload(token);
+    if (!payload) return false;
     return payload.exp > Date.now();
   } catch {
     return false;
   }
+}
+
+export function getAdminSessionUsername(token: string): string | null {
+  return decodeSessionPayload(token)?.u || null;
 }

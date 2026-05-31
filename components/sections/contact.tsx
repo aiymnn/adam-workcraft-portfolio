@@ -8,10 +8,11 @@ import { fetchPublicSocialLinks } from '@/lib/services/public-content';
 import type { PublicSocialLinks } from '@/types/content';
 
 interface ContactProps {
+  contactEmail: string;
   onInitialDataReady?: () => void;
 }
 
-export default function Contact({ onInitialDataReady }: ContactProps) {
+export default function Contact({ contactEmail, onInitialDataReady }: ContactProps) {
   const { t } = useLanguage();
   const [socialLinks, setSocialLinks] = useState<PublicSocialLinks>({ x: '', instagram: '', threads: '', tiktok: '', whatsapp: '' });
   const hasAnySocialLink = Object.values(socialLinks).some((value) => value.trim().length > 0);
@@ -79,7 +80,13 @@ export default function Contact({ onInitialDataReady }: ContactProps) {
             </p>
 
             <div className="mt-8 space-y-3 text-sm text-[var(--text-dim)] md:mt-10 md:space-y-4">
-              <p className="text-amber-200/70">{t.contact.email}</p>
+              <p className="text-amber-200/70">Email</p>
+              <a
+                href={`mailto:${contactEmail}`}
+                className="block text-base font-medium text-[var(--text)] transition-colors hover:text-amber-200/80 md:text-lg"
+              >
+                {contactEmail}
+              </a>
               <p>{t.contact.location}</p>
             </div>
           </div>

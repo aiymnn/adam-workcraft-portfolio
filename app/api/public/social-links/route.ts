@@ -10,26 +10,42 @@ const DEFAULT_LINKS: PublicSocialLinks = {
   whatsapp: '',
 };
 
-function mapRowsToLinks(rows: Array<{ platform: keyof PublicSocialLinks; url: string }>): PublicSocialLinks {
+function mapRowsToLinks(rows: Array<{ platform: keyof PublicSocialLinks; url: string; isVisible: boolean }>): PublicSocialLinks {
   const links: PublicSocialLinks = { ...DEFAULT_LINKS };
   for (const row of rows) {
-    links[row.platform] = row.url;
+    if (row.isVisible) {
+      links[row.platform] = row.url;
+    }
   }
   return links;
 }
 
 export async function GET() {
-  const rows = await db.socialLink.findMany({ select: { platform: true, url: true } });
+  try {
+    const rows = await db.socialLink.findMany({ select: { platform: true, url: true, isVisible: true } });
 
-  return NextResponse.json(
-    {
-      success: true,
-      links: mapRowsToLinks(rows as Array<{ platform: keyof PublicSocialLinks; url: string }>),
-    },
-    {
-      headers: {
-        'cache-control': 'public, s-maxage=60, stale-while-revalidate=300',
+    return NextResponse.json(
+      {
+        success: true,
+        links: mapRowsToLinks(rows as Array<{ platform: keyof PublicSocialLinks; url: string; isVisible: boolean }>),
       },
-    },
-  );
+      {
+        headers: {
+          'cache-control': 'public, s-maxage=60, stale-while-revalidate=300',
+        },
+      },
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        success: true,
+        links: { ...DEFAULT_LINKS },
+      },
+      {
+        headers: {
+          'cache-control': 'public, s-maxage=60, stale-while-revalidate=300',
+        },
+      },
+    );
+  }
 }

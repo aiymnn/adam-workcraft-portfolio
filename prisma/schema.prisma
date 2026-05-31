@@ -137,6 +137,7 @@ model SocialLink {
   id        String         @id @default(cuid())
   platform  SocialPlatform @unique
   url       String
+  isVisible Boolean        @default(true) @map("is_visible")
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 

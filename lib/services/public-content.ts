@@ -1,4 +1,4 @@
-import type { PublicReviewItem, PublicSocialLinks, PublicVaultCollection, StoryLoopImagePublicItem } from '@/types/content';
+import type { PublicAdminProfile, PublicReviewItem, PublicSocialLinks, PublicVaultCollection, StoryLoopImagePublicItem } from '@/types/content';
 
 interface VaultResponse {
   success?: boolean;
@@ -18,6 +18,11 @@ interface SocialLinksResponse {
 interface StoryLoopImageResponse {
   success?: boolean;
   logos?: StoryLoopImagePublicItem[];
+}
+
+interface AdminProfileResponse {
+  success?: boolean;
+  profile?: PublicAdminProfile;
 }
 
 export async function fetchPublicVaultCollections(limit = 6): Promise<PublicVaultCollection[]> {
@@ -50,6 +55,17 @@ export async function fetchPublicSocialLinks(): Promise<PublicSocialLinks> {
     return data.links || { x: '', instagram: '', threads: '', tiktok: '', whatsapp: '' };
   } catch {
     return { x: '', instagram: '', threads: '', tiktok: '', whatsapp: '' };
+  }
+}
+
+export async function fetchPublicAdminProfile(): Promise<PublicAdminProfile> {
+  try {
+    const res = await fetch('/api/public/profile', { method: 'GET', cache: 'no-store' });
+    if (!res.ok) return { name: 'Adam Workcraft', email: 'hello@adamworkcraft.com', avatarUrl: '/person-2.png' };
+    const data = (await res.json()) as AdminProfileResponse;
+    return data.profile || { name: 'Adam Workcraft', email: 'hello@adamworkcraft.com', avatarUrl: '/person-2.png' };
+  } catch {
+    return { name: 'Adam Workcraft', email: 'hello@adamworkcraft.com', avatarUrl: '/person-2.png' };
   }
 }
 
