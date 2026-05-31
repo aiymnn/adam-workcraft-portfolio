@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import Image from 'next/image';
 import gsap from 'gsap';
 import { useLanguage } from '@/context/language-context';
 
@@ -14,7 +15,16 @@ export default function Hero() {
   const spinRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let spinTween: gsap.core.Tween | null = null;
+    let observer: IntersectionObserver | null = null;
+
     const ctx = gsap.context(() => {
+      if (reduceMotion) {
+        gsap.set([titleRef.current?.children, subtitleRef.current, ctaRef.current, imageRef.current], { clearProps: 'all', opacity: 1 });
+        return;
+      }
+
       const tl = gsap.timeline({ defaults: { ease: 'power4.out' } });
 
       const titleChildren = titleRef.current?.children;
@@ -43,11 +53,38 @@ export default function Hero() {
       );
 
       if (spinRef.current) {
-        gsap.to(spinRef.current, { rotate: 360, duration: 12, repeat: -1, ease: 'none' });
+        spinTween = gsap.to(spinRef.current, {
+          rotate: 360,
+          duration: 12,
+          repeat: -1,
+          ease: 'none',
+          force3D: true,
+          paused: true,
+        });
+
+        if (containerRef.current) {
+          observer = new IntersectionObserver(
+            ([entry]) => {
+              if (!spinTween) return;
+              if (entry.isIntersecting) {
+                spinTween.play();
+              } else {
+                spinTween.pause();
+              }
+            },
+            { threshold: 0.05 },
+          );
+          observer.observe(containerRef.current);
+        } else {
+          spinTween.play();
+        }
       }
     }, containerRef);
 
-    return () => ctx.revert();
+    return () => {
+      observer?.disconnect();
+      ctx.revert();
+    };
   }, []);
 
   return (
@@ -102,9 +139,12 @@ export default function Hero() {
                 <circle cx="60" cy="60" r="57" fill="none" stroke="var(--text-muted)" strokeWidth="1" pathLength="100" strokeDasharray="5 2.5 2.5 2.5" />
               </svg>
             </div>
-            <img
+            <Image
               src="/person-2.png"
               alt={t.hero.name}
+              fill
+              priority
+              sizes="(max-width: 768px) 256px, 320px"
               className="size-full rounded-full object-cover"
             />
             <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-[#0c0a09] via-[#0c0a09]/70 via-35% to-transparent" />

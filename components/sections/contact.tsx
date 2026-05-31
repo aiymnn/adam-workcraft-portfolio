@@ -7,7 +7,11 @@ import { useLanguage } from '@/context/language-context';
 import { fetchPublicSocialLinks } from '@/lib/services/public-content';
 import type { PublicSocialLinks } from '@/types/content';
 
-export default function Contact() {
+interface ContactProps {
+  onInitialDataReady?: () => void;
+}
+
+export default function Contact({ onInitialDataReady }: ContactProps) {
   const { t } = useLanguage();
   const [socialLinks, setSocialLinks] = useState<PublicSocialLinks>({ x: '', instagram: '', threads: '', tiktok: '', whatsapp: '' });
   const hasAnySocialLink = Object.values(socialLinks).some((value) => value.trim().length > 0);
@@ -16,16 +20,23 @@ export default function Contact() {
     let active = true;
 
     const loadLinks = async () => {
-      const links = await fetchPublicSocialLinks();
-      if (!active) return;
-      setSocialLinks(links);
+      try {
+        const links = await fetchPublicSocialLinks();
+        if (!active) return;
+        setSocialLinks(links);
+      } catch {
+      } finally {
+        if (active) {
+          onInitialDataReady?.();
+        }
+      }
     };
 
     void loadLinks();
     return () => {
       active = false;
     };
-  }, []);
+  }, [onInitialDataReady]);
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

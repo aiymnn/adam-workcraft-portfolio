@@ -40,3 +40,10 @@ export interface VaultCategoryItem {
   isActive: boolean;
   usageCount?: number;
 }
+
+export interface StoryLoopImagePublicItem {
+  id: string;
+  name: string;
+  src: string;
+  order: number;
+}

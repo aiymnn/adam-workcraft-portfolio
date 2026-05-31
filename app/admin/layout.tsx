@@ -16,6 +16,8 @@ const ADMIN_TAB_TITLE_BY_PATH: Array<{ test: RegExp; title: string }> = [
   { test: /^\/admin\/statistics$/, title: 'Statistics' },
   { test: /^\/admin\/gallery\/vault$/, title: 'Vault Gallery' },
   { test: /^\/admin\/gallery\/reviews$/, title: 'Review Gallery' },
+  { test: /^\/admin\/gallery\/story-loop-images$/, title: 'Story Loop Images' },
+  { test: /^\/admin\/gallery\/story-loop-logos$/, title: 'Story Loop Images' },
   { test: /^\/admin\/social$/, title: 'Social Links' },
   { test: /^\/admin\/social\/.+$/, title: 'Social Platform' },
   { test: /^\/admin\/login$/, title: 'Login' },

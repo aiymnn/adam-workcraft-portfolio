@@ -203,7 +203,11 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: { items: Revie
   return createPortal(modal, document.body);
 }
 
-export default function Feedback() {
+interface FeedbackProps {
+  onInitialDataReady?: () => void;
+}
+
+export default function Feedback({ onInitialDataReady }: FeedbackProps) {
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const [reviews, setReviews] = useState<ReviewItem[]>(REVIEWS);
@@ -214,24 +218,31 @@ export default function Feedback() {
     let active = true;
 
     const loadReviews = async () => {
-      const rows = await fetchPublicReviews(6);
-      if (!active || rows.length === 0) return;
+      try {
+        const rows = await fetchPublicReviews(6);
+        if (!active || rows.length === 0) return;
 
-      setReviews(
-        rows.map((item) => ({
-          quote: item.quote,
-          author: item.author,
-          role: item.role,
-          collection: item.collection,
-        })),
-      );
+        setReviews(
+          rows.map((item) => ({
+            quote: item.quote,
+            author: item.author,
+            role: item.role,
+            collection: item.collection,
+          })),
+        );
+      } catch {
+      } finally {
+        if (active) {
+          onInitialDataReady?.();
+        }
+      }
     };
 
     void loadReviews();
     return () => {
       active = false;
     };
-  }, []);
+  }, [onInitialDataReady]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {

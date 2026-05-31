@@ -116,6 +116,7 @@ function getLayoutClass(item: CollectionItem, index: number): string {
 
 interface GalleryProps {
   onOpenCollection: (collection: CollectionItem) => void;
+  onInitialDataReady?: () => void;
 }
 
 function GalleryCard({ item, onOpenCollection, layoutClass }: { item: CollectionItem; onOpenCollection: (c: CollectionItem) => void; layoutClass: string }) {
@@ -252,6 +253,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
             muted
             loop
             playsInline
+            preload="metadata"
             className="absolute inset-0 size-full object-cover"
           />
           <video
@@ -259,6 +261,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
             muted
             loop
             playsInline
+            preload="metadata"
             className="absolute inset-0 size-full object-cover"
           />
         </div>
@@ -269,6 +272,9 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
               key={outgoingSrc}
               src={outgoingSrc}
               alt=""
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
               className="absolute inset-0 size-full object-cover animate-[fadeOut_0.5s_ease-out_forwards]"
             />
           )}
@@ -277,6 +283,8 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
             src={currentSrc}
             alt={item.title}
             loading="lazy"
+            decoding="async"
+            fetchPriority="low"
             className="absolute inset-0 size-full object-cover animate-[fadeIn_0.5s_ease-out]"
           />
         </div>
@@ -305,7 +313,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
   );
 }
 
-export default function Gallery({ onOpenCollection }: GalleryProps) {
+export default function Gallery({ onOpenCollection, onInitialDataReady }: GalleryProps) {
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -315,29 +323,36 @@ export default function Gallery({ onOpenCollection }: GalleryProps) {
     let active = true;
 
     const loadCollections = async () => {
-      const rows = await fetchPublicVaultCollections(8);
-      if (!active || rows.length === 0) return;
+      try {
+        const rows = await fetchPublicVaultCollections(8);
+        if (!active || rows.length === 0) return;
 
-      setCollections(
-        rows.map((item) => ({
-          id: item.id,
-          title: item.title,
-          category: item.category,
-          thumb: item.thumb,
-          media: item.media,
-          isVideo: item.isVideo,
-          videos: item.videos,
-          columnSpan: item.columnSpan,
-          rowSpan: item.rowSpan,
-        })),
-      );
+        setCollections(
+          rows.map((item) => ({
+            id: item.id,
+            title: item.title,
+            category: item.category,
+            thumb: item.thumb,
+            media: item.media,
+            isVideo: item.isVideo,
+            videos: item.videos,
+            columnSpan: item.columnSpan,
+            rowSpan: item.rowSpan,
+          })),
+        );
+      } catch {
+      } finally {
+        if (active) {
+          onInitialDataReady?.();
+        }
+      }
     };
 
     void loadCollections();
     return () => {
       active = false;
     };
-  }, []);
+  }, [onInitialDataReady]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {

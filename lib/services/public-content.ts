@@ -1,4 +1,4 @@
-import type { PublicReviewItem, PublicSocialLinks, PublicVaultCollection } from '@/types/content';
+import type { PublicReviewItem, PublicSocialLinks, PublicVaultCollection, StoryLoopImagePublicItem } from '@/types/content';
 
 interface VaultResponse {
   success?: boolean;
@@ -13,6 +13,11 @@ interface ReviewResponse {
 interface SocialLinksResponse {
   success?: boolean;
   links?: PublicSocialLinks;
+}
+
+interface StoryLoopImageResponse {
+  success?: boolean;
+  logos?: StoryLoopImagePublicItem[];
 }
 
 export async function fetchPublicVaultCollections(limit = 6): Promise<PublicVaultCollection[]> {
@@ -45,5 +50,16 @@ export async function fetchPublicSocialLinks(): Promise<PublicSocialLinks> {
     return data.links || { x: '', instagram: '', threads: '', tiktok: '', whatsapp: '' };
   } catch {
     return { x: '', instagram: '', threads: '', tiktok: '', whatsapp: '' };
+  }
+}
+
+export async function fetchPublicStoryLoopImages(): Promise<StoryLoopImagePublicItem[]> {
+  try {
+    const res = await fetch('/api/public/story-loop-logos', { method: 'GET', cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = (await res.json()) as StoryLoopImageResponse;
+    return data.logos || [];
+  } catch {
+    return [];
   }
 }

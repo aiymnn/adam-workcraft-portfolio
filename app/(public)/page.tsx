@@ -11,14 +11,22 @@ import type { CollectionItem } from '@/components/sections/gallery';
 import LightboxModal from '@/components/ui/lightbox-modal';
 import Feedback from '@/components/sections/feedback';
 import Contact from '@/components/sections/contact';
+import LandingPageLoader from '@/components/ui/landing-page-loader';
 
 gsap.registerPlugin(ScrollTrigger);
+
+const REQUIRED_DATA_SECTIONS = ['about', 'gallery', 'feedback', 'contact'] as const;
+type LandingDataSection = (typeof REQUIRED_DATA_SECTIONS)[number];
 
 export default function Home() {
   const mainRef = useRef<HTMLDivElement>(null);
   const visitTrackedRef = useRef(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [activeCollection, setActiveCollection] = useState<CollectionItem | null>(null);
+  const [pendingDataSections, setPendingDataSections] = useState<Set<LandingDataSection>>(
+    () => new Set(REQUIRED_DATA_SECTIONS),
+  );
+  const [minimumLoaderElapsed, setMinimumLoaderElapsed] = useState(false);
 
   const handleOpenCollection = useCallback((collection: CollectionItem) => {
     setActiveCollection(collection);
@@ -27,6 +35,20 @@ export default function Home() {
 
   const handleCloseLightbox = useCallback(() => {
     setLightboxOpen(false);
+  }, []);
+
+  const handleSectionDataReady = useCallback((section: LandingDataSection) => {
+    setPendingDataSections((prev) => {
+      if (!prev.has(section)) return prev;
+      const next = new Set(prev);
+      next.delete(section);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMinimumLoaderElapsed(true), 700);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -58,20 +80,35 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     const ctx = gsap.context(() => {
       const sections = document.querySelectorAll('section[id]');
+
+      if (prefersReducedMotion) {
+        sections.forEach((section) => {
+          (section as HTMLElement).style.opacity = '1';
+          (section as HTMLElement).style.willChange = 'auto';
+        });
+        return;
+      }
+
       sections.forEach((section) => {
-        (section as HTMLElement).style.willChange = 'opacity, transform';
+        (section as HTMLElement).style.willChange = 'opacity';
         gsap.fromTo(
           section,
-          { opacity: 0.3 },
+          { opacity: 0.45 },
           {
             opacity: 1,
+            duration: 0.7,
+            ease: 'power2.out',
+            onComplete: () => {
+              (section as HTMLElement).style.willChange = 'auto';
+            },
             scrollTrigger: {
               trigger: section,
-              start: 'top 80%',
-              end: 'bottom 20%',
-              scrub: true,
+              start: 'top 88%',
+              toggleActions: 'play none none none',
             },
           },
         );
@@ -81,25 +118,38 @@ export default function Home() {
     return () => ctx.revert();
   }, []);
 
+  const loadedCount = REQUIRED_DATA_SECTIONS.length - pendingDataSections.size;
+  const isLandingLoading = !minimumLoaderElapsed || pendingDataSections.size > 0;
+
   return (
-    <main ref={mainRef}>
+    <>
+      <LandingPageLoader
+        isVisible={isLandingLoading}
+        loadedCount={loadedCount}
+        totalCount={REQUIRED_DATA_SECTIONS.length}
+      />
+      <main ref={mainRef}>
       <Navbar />
       <Hero />
-      <About />
+      <About onInitialDataReady={() => handleSectionDataReady('about')} />
       <div id="gallery">
-        <Gallery onOpenCollection={handleOpenCollection} />
+        <Gallery
+          onOpenCollection={handleOpenCollection}
+          onInitialDataReady={() => handleSectionDataReady('gallery')}
+        />
       </div>
       <div id="reviews">
-        <Feedback />
+        <Feedback onInitialDataReady={() => handleSectionDataReady('feedback')} />
       </div>
       <div id="connect">
-        <Contact />
+        <Contact onInitialDataReady={() => handleSectionDataReady('contact')} />
       </div>
       <LightboxModal
         isOpen={lightboxOpen}
         collection={activeCollection}
         onClose={handleCloseLightbox}
       />
-    </main>
+      </main>
+    </>
   );
 }

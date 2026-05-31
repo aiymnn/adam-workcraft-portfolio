@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import NumberFlow from '@number-flow/react';
 import { useLanguage } from '@/context/language-context';
+import { fetchPublicStoryLoopImages } from '@/lib/services/public-content';
+import { DEFAULT_STORY_LOOP_LOGOS, toRenderableStoryLoopLogos } from '@/lib/story-loop-logos';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -26,33 +29,10 @@ const SERVICES = [
   'Graphic Design',
 ];
 
-const TOOLS = [
-  { name: 'Photoshop', src: '/photoshop-logo.png' },
-  { name: 'Lightroom', src: '/photoshop-logo.png' },
-  { name: 'Premiere Pro', src: '/photoshop-logo.png' },
-  { name: 'After Effects', src: '/photoshop-logo.png' },
-  { name: 'Illustrator', src: '/photoshop-logo.png' },
-  { name: 'DaVinci Resolve', src: '/photoshop-logo.png' },
-  { name: 'Final Cut Pro', src: '/photoshop-logo.png' },
-  { name: 'Canva', src: '/photoshop-logo.png' },
-  { name: 'CapCut', src: '/photoshop-logo.png' },
-  { name: 'Blender', src: '/photoshop-logo.png' },
-  { name: 'Figma', src: '/photoshop-logo.png' },
-  { name: 'Audition', src: '/photoshop-logo.png' },
-  { name: 'Capture One', src: '/photoshop-logo.png' },
-  { name: 'Pro Tools', src: '/photoshop-logo.png' },
-  { name: 'Logic Pro', src: '/photoshop-logo.png' },
-  { name: 'Unity', src: '/photoshop-logo.png' },
-  { name: 'Maya', src: '/photoshop-logo.png' },
-  { name: 'Cinema 4D', src: '/photoshop-logo.png' },
-  { name: 'CorelDRAW', src: '/photoshop-logo.png' },
-  { name: 'Sketch', src: '/photoshop-logo.png' },
-  { name: 'Affinity', src: '/photoshop-logo.png' },
-  { name: 'Luminar', src: '/photoshop-logo.png' },
-  { name: 'Photomatix', src: '/photoshop-logo.png' },
-  { name: 'Houdini', src: '/photoshop-logo.png' },
-];
-
+const STRIP_COLUMNS = 6;
+const MIN_CYCLE_ROWS = 5;
+const MIN_BASE_ITEMS = 30;
+const MIN_RENDER_ROWS = 24;
 const ROW_LAYOUTS: { scales: [number, number, number, number, number, number]; opacities: [number, number, number, number, number, number] }[] = [
   { scales: [0.25, 0.4, 1, 0.9, 0.35, 0.15], opacities: [0.02, 0.06, 0.3, 0.25, 0.05, 0.01] },
   { scales: [0.9, 0.75, 0.55, 1, 0.4, 0.2], opacities: [0.25, 0.18, 0.08, 0.3, 0.04, 0.02] },
@@ -60,46 +40,183 @@ const ROW_LAYOUTS: { scales: [number, number, number, number, number, number]; o
   { scales: [1, 0.8, 0.6, 0.45, 0.3, 0.1], opacities: [0.3, 0.2, 0.12, 0.06, 0.03, 0.01] },
 ];
 
-const rows: { name: string; src: string }[][] = [];
-for (let i = 0; i < TOOLS.length; i += 6) {
-  rows.push(TOOLS.slice(i, i + 6));
+interface StripTool {
+  id: string;
+  name: string;
+  src: string;
+  scale: number;
+  opacity: number;
+  frameSize: number;
 }
-const STRIP_CONTENT = [...rows, ...rows, ...rows, ...rows, ...rows, ...rows];
 
-function ToolStrip({ stripRef }: { stripRef: React.RefObject<HTMLDivElement | null> }) {
+interface StripBuildResult {
+  rows: StripTool[][];
+  cycleRows: number;
+}
+
+function hashText(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function createSeededRandom(seedValue: number): () => number {
+  let seed = seedValue || 123456789;
+  return () => {
+    seed |= 0;
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function chunkRows(items: StripTool[], size: number): StripTool[][] {
+  const rows: StripTool[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    rows.push(items.slice(i, i + size));
+  }
+  return rows;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function buildStripContent(logos: Array<{ name: string; src: string }>): StripBuildResult {
+  if (logos.length === 0) {
+    return { rows: [], cycleRows: 0 };
+  }
+
+  const seedInput = logos.map((logo) => `${logo.name}|${logo.src}`).join('~');
+  const random = createSeededRandom(hashText(seedInput));
+
+  const baseItemCount = Math.max(MIN_BASE_ITEMS, logos.length < MIN_BASE_ITEMS ? logos.length * 4 : logos.length);
+  const seededItems: StripTool[] = [];
+  const rowLayoutOffset = Math.floor(random() * ROW_LAYOUTS.length);
+
+  for (let i = 0; i < baseItemCount; i += 1) {
+    const source = logos[i % logos.length];
+    const rowIndex = Math.floor(i / STRIP_COLUMNS);
+    const colIndex = i % STRIP_COLUMNS;
+    const layout = ROW_LAYOUTS[(rowIndex + rowLayoutOffset) % ROW_LAYOUTS.length];
+    const scale = clamp(layout.scales[colIndex] + (random() - 0.5) * 0.16, 0.1, 1.05);
+    const opacity = clamp(layout.opacities[colIndex] + (random() - 0.5) * 0.05, 0.01, 0.3);
+    const frameSize = Math.round(26 + scale * 90);
+
+    seededItems.push({
+      id: `${source.name}-${i}`,
+      name: source.name,
+      src: source.src,
+      scale,
+      opacity,
+      frameSize,
+    });
+  }
+
+  for (let i = seededItems.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [seededItems[i], seededItems[j]] = [seededItems[j], seededItems[i]];
+  }
+
+  let baseRows = chunkRows(seededItems, STRIP_COLUMNS).filter((row) => row.length === STRIP_COLUMNS);
+
+  if (baseRows.length === 0) {
+    return { rows: [], cycleRows: 0 };
+  }
+
+  while (baseRows.length < MIN_CYCLE_ROWS) {
+    baseRows = [...baseRows, ...baseRows].slice(0, MIN_CYCLE_ROWS);
+  }
+
+  const cycleRows = baseRows.length;
+  const renderSets = Math.max(4, Math.ceil(MIN_RENDER_ROWS / cycleRows));
+  const rows = Array.from({ length: renderSets }, () => baseRows).flat();
+
+  return { rows, cycleRows };
+}
+
+function ToolStrip({ stripRef, content }: { stripRef: React.RefObject<HTMLDivElement | null>; content: StripTool[][] }) {
   return (
     <div
       ref={stripRef}
       className="flex flex-col gap-16 md:gap-20"
+      style={{ willChange: 'transform' }}
     >
-      {STRIP_CONTENT.map((row, ri) => {
-        const cfg = ROW_LAYOUTS[ri % ROW_LAYOUTS.length];
-        return (
-          <div key={ri} className="flex justify-center gap-12 md:gap-16">
-            {row.map((tool, ci) => (
-              <img
-                key={tool.name + ri + ci}
+      {content.map((row, ri) => (
+        <div
+          key={ri}
+          className="flex justify-center gap-12 md:gap-16"
+          style={{ transform: `translateX(${(ri % 2 === 0 ? 1 : -1) * 8}px)` }}
+        >
+          {row.map((tool, ci) => (
+            <div
+              key={tool.id + ri + ci}
+              className="relative shrink-0 overflow-hidden rounded-md md:rounded-lg"
+              style={{
+                width: `${tool.frameSize}px`,
+                height: `${tool.frameSize}px`,
+                opacity: tool.opacity,
+              }}
+            >
+              <Image
                 src={tool.src}
                 alt={tool.name}
-                className="size-16 md:size-20"
-                style={{ transform: `scale(${cfg.scales[ci]})`, opacity: cfg.opacities[ci] }}
+                fill
+                className="h-full w-full object-cover"
                 loading="lazy"
+                quality={55}
+                sizes="(max-width: 768px) 64px, 96px"
               />
-            ))}
-          </div>
-        );
-      })}
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
 
-export default function About() {
+interface AboutProps {
+  onInitialDataReady?: () => void;
+}
+
+export default function About({ onInitialDataReady }: AboutProps) {
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const statRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [animated, setAnimated] = useState<Set<number>>(new Set());
+  const [tools, setTools] = useState<Array<{ name: string; src: string }>>(DEFAULT_STORY_LOOP_LOGOS);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadStoryLoopLogos = async () => {
+      try {
+        const logos = await fetchPublicStoryLoopImages();
+        if (!active) return;
+        setTools(toRenderableStoryLoopLogos(logos));
+      } catch {
+      } finally {
+        if (active) {
+          onInitialDataReady?.();
+        }
+      }
+    };
+
+    void loadStoryLoopLogos();
+
+    return () => {
+      active = false;
+    };
+  }, [onInitialDataReady]);
+
+  const fallbackStripContent = useMemo(() => buildStripContent(DEFAULT_STORY_LOOP_LOGOS), []);
+  const dynamicStripContent = useMemo(() => buildStripContent(tools), [tools]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -145,19 +262,54 @@ export default function About() {
     if (!stripRef.current) return;
     const strip = stripRef.current;
     const children = strip.children;
-    if (children.length < 5) return;
+    const source = dynamicStripContent.rows.length > 0 ? dynamicStripContent : fallbackStripContent;
+    if (source.cycleRows <= 0 || children.length <= source.cycleRows) return;
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      gsap.set(strip, { y: 0 });
+      return;
+    }
+
     const h =
-      (children[4] as HTMLElement).offsetTop - (children[0] as HTMLElement).offsetTop;
+      (children[source.cycleRows] as HTMLElement).offsetTop - (children[0] as HTMLElement).offsetTop;
+    const duration = Math.max(12, source.cycleRows * 2.25);
+    let tween: gsap.core.Tween | null = null;
+    let observer: IntersectionObserver | null = null;
     const ctx = gsap.context(() => {
-      gsap.to(strip, {
+      gsap.set(strip, { force3D: true });
+      tween = gsap.to(strip, {
         y: -h,
-        duration: 10,
+        duration,
         repeat: -1,
         ease: 'none',
+        force3D: true,
+        paused: true,
       });
+
+      if (sectionRef.current && tween) {
+        observer = new IntersectionObserver(
+          ([entry]) => {
+            if (!tween) return;
+            if (entry.isIntersecting) {
+              tween.play();
+            } else {
+              tween.pause();
+            }
+          },
+          { threshold: 0.05 },
+        );
+        observer.observe(sectionRef.current);
+      } else {
+        tween?.play();
+      }
     });
-    return () => ctx.revert();
-  }, []);
+
+    return () => {
+      observer?.disconnect();
+      ctx.revert();
+    };
+  }, [dynamicStripContent, fallbackStripContent]);
 
   return (
     <section
@@ -173,7 +325,7 @@ export default function About() {
         }}
       >
         <div style={{ transform: 'translateX(40%) rotate(30deg)' }}>
-          <ToolStrip stripRef={stripRef} />
+          <ToolStrip stripRef={stripRef} content={dynamicStripContent.rows.length > 0 ? dynamicStripContent.rows : fallbackStripContent.rows} />
         </div>
       </div>
 

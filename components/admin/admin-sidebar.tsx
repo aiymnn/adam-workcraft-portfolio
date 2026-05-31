@@ -27,6 +27,7 @@ const MAIN_ITEMS: SidebarItem[] = [
     children: [
       { id: 'vault', label: 'Personal Vault', href: '/admin/gallery/vault' },
       { id: 'reviews', label: 'Review Collection', href: '/admin/gallery/reviews' },
+      { id: 'story-loop-images', label: 'Story Loop Images', href: '/admin/gallery/story-loop-images' },
     ],
   },
   {
