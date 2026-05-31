@@ -193,3 +193,11 @@ export function GripIcon({ className, ...props }: IconProps) {
     </svg>
   );
 }
+
+export function BarChartIcon({ className, ...props }: IconProps) {
+  return (
+    <svg className={className || 'size-4 shrink-0'} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M8.25 15.75v-4.5m3.75 4.5V8.25m3.75 7.5v-9.75m3.75 9.75v-6" />
+    </svg>
+  );
+}

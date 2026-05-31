@@ -137,3 +137,26 @@ model SiteContent {
 
   @@map("site_content")
 }
+
+model PageVisit {
+  id         String   @id @default(cuid())
+  path       String
+  sessionId  String?  @map("session_id")
+  referrer   String?
+  userAgent  String   @map("user_agent")
+  browser    String
+  os         String
+  deviceType String   @map("device_type")
+  language   String?
+  country    String?
+  ipHash     String?  @map("ip_hash")
+  visitedAt  DateTime @default(now()) @map("visited_at")
+
+  @@index([visitedAt])
+  @@index([browser])
+  @@index([path])
+  @@index([deviceType])
+  @@index([sessionId, visitedAt])
+  @@index([path, visitedAt])
+  @@map("page_visits")
+}

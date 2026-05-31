@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
-import { GridIcon, PersonIcon, CalendarIcon, ShareIcon, FolderIcon, ExternalLinkIcon, LogoutIcon, ChevronDownIcon, XIcon } from '@/components/shared/icons';
+import { GridIcon, PersonIcon, CalendarIcon, ShareIcon, FolderIcon, BarChartIcon, ExternalLinkIcon, LogoutIcon, ChevronDownIcon, XIcon } from '@/components/shared/icons';
 import { DEFAULT_PROFILE, PROFILE_UPDATED_EVENT, SOCIAL_PLATFORMS, type SocialPlatformId, type AdminProfile, loadProfile } from '@/lib/constants';
 import { logout } from '@/lib/services/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,7 @@ type SidebarItem = {
 const MAIN_ITEMS: SidebarItem[] = [
   { id: 'dashboard', label: 'Dashboard', href: '/admin/dashboard', icon: GridIcon },
   { id: 'scheduling', label: 'Scheduling', href: '/admin/schedule', icon: CalendarIcon },
+  { id: 'statistics', label: 'Statistics', href: '/admin/statistics', icon: BarChartIcon },
   {
     id: 'gallery',
     label: 'Gallery',

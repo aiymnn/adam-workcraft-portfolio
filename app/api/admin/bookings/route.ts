@@ -20,8 +20,44 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
+  const url = new URL(request.url);
+  const fromValue = (url.searchParams.get('from') || '').trim();
+  const toValue = (url.searchParams.get('to') || '').trim();
+  const limitValue = (url.searchParams.get('limit') || '').trim();
+
+  const fromDate = fromValue ? parseDateOnlyToUtc(fromValue) : null;
+  const toDate = toValue ? parseDateOnlyToUtc(toValue) : null;
+
+  if (fromValue && !fromDate) {
+    return NextResponse.json({ success: false, message: 'Invalid from date format' }, { status: 400 });
+  }
+
+  if (toValue && !toDate) {
+    return NextResponse.json({ success: false, message: 'Invalid to date format' }, { status: 400 });
+  }
+
+  let take: number | undefined;
+  if (limitValue) {
+    const parsedLimit = Number.parseInt(limitValue, 10);
+    if (!Number.isFinite(parsedLimit) || parsedLimit < 1 || parsedLimit > 1000) {
+      return NextResponse.json({ success: false, message: 'limit must be an integer between 1 and 1000' }, { status: 400 });
+    }
+    take = parsedLimit;
+  }
+
   const rows = await db.booking.findMany({
+    where: {
+      ...(fromDate || toDate
+        ? {
+            date: {
+              ...(fromDate ? { gte: fromDate } : {}),
+              ...(toDate ? { lte: toDate } : {}),
+            },
+          }
+        : {}),
+    },
     orderBy: [{ date: 'asc' }, { timeLabel: 'asc' }, { createdAt: 'asc' }],
+    ...(take ? { take } : {}),
   });
 
   return NextResponse.json({ success: true, bookings: rows.map(toScheduleBooking) });

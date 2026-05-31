@@ -18,6 +18,13 @@ interface BookingWritePayload {
   status?: Booking['status'];
 }
 
+interface FetchAdminBookingsOptions {
+  from?: string;
+  to?: string;
+  limit?: number;
+  signal?: AbortSignal;
+}
+
 async function parseResponse<T>(res: Response): Promise<ApiResponse<T>> {
   try {
     return (await res.json()) as ApiResponse<T>;
@@ -34,11 +41,20 @@ async function assertOk<T>(res: Response): Promise<ApiResponse<T>> {
   return payload;
 }
 
-export async function fetchAdminBookings(): Promise<Booking[]> {
-  const res = await fetch('/api/admin/bookings', {
+export async function fetchAdminBookings(options: FetchAdminBookingsOptions = {}): Promise<Booking[]> {
+  const params = new URLSearchParams();
+  if (options.from) params.set('from', options.from);
+  if (options.to) params.set('to', options.to);
+  if (typeof options.limit === 'number') params.set('limit', String(options.limit));
+
+  const query = params.toString();
+  const endpoint = query ? `/api/admin/bookings?${query}` : '/api/admin/bookings';
+
+  const res = await fetch(endpoint, {
     method: 'GET',
     credentials: 'same-origin',
     cache: 'no-store',
+    signal: options.signal,
   });
   const data = await assertOk<Booking>(res);
   return data.bookings || [];

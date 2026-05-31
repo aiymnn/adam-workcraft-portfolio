@@ -16,6 +16,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function Home() {
   const mainRef = useRef<HTMLDivElement>(null);
+  const visitTrackedRef = useRef(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [activeCollection, setActiveCollection] = useState<CollectionItem | null>(null);
 
@@ -26,6 +27,34 @@ export default function Home() {
 
   const handleCloseLightbox = useCallback(() => {
     setLightboxOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (visitTrackedRef.current) return;
+
+    const path = window.location.pathname || '/';
+    const key = `aw_visit_tracked:${path}`;
+    if (window.sessionStorage.getItem(key) === '1') {
+      visitTrackedRef.current = true;
+      return;
+    }
+
+    const payload = JSON.stringify({ path });
+
+    if (navigator.sendBeacon) {
+      const blob = new Blob([payload], { type: 'application/json' });
+      navigator.sendBeacon('/api/public/analytics/visit', blob);
+    } else {
+      void fetch('/api/public/analytics/visit', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: payload,
+        keepalive: true,
+      });
+    }
+
+    window.sessionStorage.setItem(key, '1');
+    visitTrackedRef.current = true;
   }, []);
 
   useEffect(() => {
