@@ -63,18 +63,36 @@ export function saveSocialLinks(links: Record<SocialPlatformId, string>) {
 
 export const PROFILE_STORAGE_KEY = 'admin_profile';
 
+export interface AdminProfile {
+  name: string;
+  email: string;
+  avatarUrl: string;
+}
+
+const DEFAULT_PROFILE: AdminProfile = {
+  name: 'Adam Workcraft',
+  email: 'hello@adamworkcraft.com',
+  avatarUrl: '/person-2.png',
+};
+
 export function loadProfile() {
   if (typeof window === 'undefined') {
-    return { name: 'Adam Workcraft', email: 'hello@adamworkcraft.com' };
+    return DEFAULT_PROFILE;
   }
   try {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as { name: string; email: string };
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<AdminProfile>;
+      return {
+        ...DEFAULT_PROFILE,
+        ...parsed,
+      };
+    }
   } catch {}
-  return { name: 'Adam Workcraft', email: 'hello@adamworkcraft.com' };
+  return DEFAULT_PROFILE;
 }
 
-export function saveProfile(profile: { name: string; email: string }) {
+export function saveProfile(profile: AdminProfile) {
   try {
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
   } catch {}

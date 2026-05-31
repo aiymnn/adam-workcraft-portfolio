@@ -177,7 +177,7 @@ const RightPanel = memo(function RightPanel({
       </div>
 
       <div className="border-t border-[var(--border)] px-4 py-2.5 text-center text-xs text-[var(--text-dim)]">
-        {bookingsCount} total &middot; Saved locally
+        {bookingsCount} total &middot; Synced with database
       </div>
     </div>
   );

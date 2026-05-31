@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAdminTheme } from '@/context/admin-theme-context';
 import { SunIcon, MoonIcon, ChevronLeftIcon } from '@/components/shared/icons';
-import { login, isAuthenticated, getLastPage } from '@/lib/services/auth';
+import { checkSession, login, getLastPage } from '@/lib/services/auth';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminLogin() {
@@ -19,25 +19,48 @@ export default function AdminLogin() {
   const [error, setError] = useState('');
   const [shaking, setShaking] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && isAuthenticated()) {
-      router.replace(getLastPage() || '/admin/dashboard');
-    }
+    let active = true;
+
+    (async () => {
+      const authenticated = await checkSession();
+      if (active && authenticated) {
+        router.replace(getLastPage() || '/admin/dashboard');
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
+      if (isSubmitting) return;
       setError('');
+      setIsSubmitting(true);
 
-      if (login(username, password)) {
+      const normalizedUsername = username.trim();
+      const normalizedPassword = password;
+
+      if (!normalizedUsername || !normalizedPassword) {
+        setError('Username and password are required');
+        toast.error('Missing credentials');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (await login(normalizedUsername, normalizedPassword)) {
         toast.success('Welcome back');
         router.push(getLastPage() || '/admin/dashboard');
+        setIsSubmitting(false);
         return;
       }
 
@@ -45,8 +68,9 @@ export default function AdminLogin() {
       toast.error('Invalid credentials');
       setShaking(true);
       setTimeout(() => setShaking(false), 420);
+      setIsSubmitting(false);
     },
-    [username, password, router, toast],
+    [isSubmitting, username, password, router, toast],
   );
 
   return (
@@ -75,6 +99,7 @@ export default function AdminLogin() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="admin"
+                  required
                   autoComplete="off"
                 />
               </div>
@@ -85,6 +110,7 @@ export default function AdminLogin() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  required
                   autoComplete="current-password"
                 />
               </div>
@@ -93,8 +119,8 @@ export default function AdminLogin() {
                 <p className="text-sm text-red-400">{error}</p>
               )}
 
-              <Button type="submit" variant="primary" className="w-full">
-                Sign In
+              <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? 'Signing in...' : 'Sign In'}
               </Button>
 
               <div className="text-center">

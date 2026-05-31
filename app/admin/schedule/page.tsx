@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addDays, subDays, subWeeks } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, subDays, subWeeks } from 'date-fns';
 import type { Booking, FormData } from './_components/types';
 import { EMPTY_FORM } from './_components/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlusIcon, ChevronLeftIcon, ChevronRightIcon, TrendingUpIcon, TrendingDownIcon } from '@/components/shared/icons';
 import NumberFlow from '@number-flow/react';
-import { loadBookings, saveBookings, generateId, generateReviewCode } from '@/lib/services/bookings';
+import { createAdminBooking, deleteAdminBooking, fetchAdminBookings, generateAdminReviewCode, updateAdminBooking } from '@/lib/services/admin-bookings';
 import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import { useToast } from '@/hooks/use-toast';
 import AdminHeader from '@/components/admin/admin-header';
@@ -20,28 +20,11 @@ import RightPanel from './_components/right-panel';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function makeDummyBookings(): Booking[] {
-  const today = new Date();
-  const yyyyMMdd = (d: Date) => format(d, 'yyyy-MM-dd');
-  const code = (c: string) => ({ reviewCode: c, reviewSubmitted: false });
-  return [
-    { id: 'd1', date: yyyyMMdd(today), time: '09:00', name: 'Alice Johnson', email: 'alice@example.com', phone: '+60 12-345 6789', service: 'Brand Consultation', status: 'confirmed', notes: 'Discuss new brand identity for startup launch.', ...code('RVW3-A9XK') },
-    { id: 'd2', date: yyyyMMdd(today), time: '11:00', name: 'Bob Lee', email: 'bob@example.com', phone: '+60 12-987 6543', service: 'UI/UX Design Review', status: 'pending', notes: 'Review latest Figma mockups before client presentation.', reviewCode: '', reviewSubmitted: false },
-    { id: 'd3', date: yyyyMMdd(today), time: '14:30', name: 'Carol Tan', email: 'carol@example.com', phone: '+60 12-555 1212', service: 'Website Strategy', status: 'cancelled', notes: '', reviewCode: '', reviewSubmitted: false },
-    { id: 'd8', date: yyyyMMdd(today), time: '16:00', name: 'Diana Rahman', email: 'diana@example.com', phone: '+60 12-888 9999', service: 'Photography Session', status: 'confirmed', notes: 'Engagement shoot.', reviewCode: '', reviewSubmitted: false },
-    { id: 'd4', date: yyyyMMdd(addDays(today, 1)), time: '10:30', name: 'David Wong', email: 'david@example.com', phone: '+60 12-444 3333', service: 'Photography Session', status: 'confirmed', notes: 'Product shoot for new collection.', ...code('BK42-MN78') },
-    { id: 'd5', date: yyyyMMdd(addDays(today, 2)), time: '16:00', name: 'Eve Martinez', email: 'eve@example.com', phone: '+60 12-777 8888', service: 'Social Media Audit', status: 'pending', notes: '', reviewCode: '', reviewSubmitted: false },
-    { id: 'd6', date: yyyyMMdd(addDays(today, 3)), time: '09:30', name: 'Frank Lim', email: 'frank@example.com', phone: '+60 12-666 5555', service: 'Brand Consultation', status: 'confirmed', notes: 'Second session.', reviewCode: 'XK92-MN34', reviewSubmitted: true },
-    { id: 'd7', date: yyyyMMdd(addDays(today, -2)), time: '15:00', name: 'Grace Chen', email: 'grace@example.com', phone: '+60 12-333 2222', service: 'Content Writing', status: 'confirmed', notes: 'Blog post series planning.', reviewCode: '', reviewSubmitted: false },
-  ];
-}
-
-function initBookings(): Booking[] {
-  const existing = loadBookings();
-  if (existing.length > 0) return existing;
-  const dummies = makeDummyBookings();
-  saveBookings(dummies);
-  return dummies;
+function sortBookings(items: Booking[]): Booking[] {
+  return [...items].sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return a.time.localeCompare(b.time);
+  });
 }
 
 interface CalendarGridProps {
@@ -229,6 +212,7 @@ export default function SchedulePage() {
   const manualToggleRef = useRef(false);
 
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const { toast } = useToast();
@@ -242,15 +226,32 @@ export default function SchedulePage() {
   const [mobileTab, setMobileTab] = useState<'calendar' | 'bookings'>('calendar');
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (!isAuthenticated()) {
+    let active = true;
+
+    const init = async () => {
+      if (typeof window !== 'undefined' && !isAuthenticated()) {
         setLastPage('/admin/schedule');
         router.replace('/admin/login');
         return;
       }
-    }
-    setBookings(initBookings());
-  }, [router]);
+
+      try {
+        const rows = await fetchAdminBookings();
+        if (!active) return;
+        setBookings(sortBookings(rows));
+      } catch {
+        if (!active) return;
+        toast.error('Failed to load bookings');
+      } finally {
+        if (active) setIsLoadingBookings(false);
+      }
+    };
+
+    void init();
+    return () => {
+      active = false;
+    };
+  }, [router, toast]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
@@ -358,28 +359,31 @@ export default function SchedulePage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!formData.name.trim() || !formData.email.trim()) return;
+
     const targetDate = formData.date || selectedStr;
-    const newBookings = [...bookings];
-    if (editingBooking) {
-      const idx = newBookings.findIndex((b) => b.id === editingBooking.id);
-      if (idx !== -1) {
-        newBookings[idx] = {
-          ...newBookings[idx],
+
+    try {
+      if (editingBooking) {
+        const updated = await updateAdminBooking(editingBooking.id, {
           date: targetDate,
+          time: formData.time,
           name: formData.name.trim(),
           email: formData.email.trim(),
           phone: formData.phone,
           service: formData.service,
-          time: formData.time,
           notes: formData.notes,
-          status: (formData.status as Booking['status']) || newBookings[idx].status,
-        };
+          status: (formData.status as Booking['status']) || editingBooking.status,
+        });
+
+        setBookings((prev) => sortBookings(prev.map((b) => (b.id === updated.id ? updated : b))));
+        closeDialog();
+        toast.success('Booking updated');
+        return;
       }
-    } else {
-      newBookings.push({
-        id: generateId(),
+
+      const created = await createAdminBooking({
         date: targetDate,
         time: formData.time,
         name: formData.name.trim(),
@@ -387,40 +391,38 @@ export default function SchedulePage() {
         phone: formData.phone,
         service: formData.service,
         notes: formData.notes,
-        status: 'pending',
-        reviewCode: '',
-        reviewSubmitted: false,
       });
-    }
-    setBookings(newBookings);
-    saveBookings(newBookings);
-    closeDialog();
-    if (editingBooking) {
-      toast.success('Booking updated');
-    } else {
+
+      setBookings((prev) => sortBookings([...prev, created]));
+      closeDialog();
       toast.success('Booking created');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save booking');
     }
-  }, [bookings, formData, editingBooking, selectedStr, closeDialog, toast]);
+  }, [formData, editingBooking, selectedStr, closeDialog, toast]);
 
   const handleRequestStatusChange = useCallback((id: string, status: Booking['status']) => {
     setStatusPendingConfirm({ id, status });
   }, []);
 
-  const confirmStatusChange = useCallback(() => {
+  const confirmStatusChange = useCallback(async () => {
     if (!statusPendingConfirm) return;
     const { id, status } = statusPendingConfirm;
     setStatusPendingConfirm(null);
     setChangingStatusId(id);
-    setTimeout(() => setChangingStatusId(null), 500);
-    setBookings((prev) => {
-      const next = prev.map((b) => (b.id === id ? { ...b, status } : b));
-      saveBookings(next);
-      return next;
-    });
-    if (editingRef.current?.id === id) {
-      setEditingBooking((prev) => (prev ? { ...prev, status } : null));
+
+    try {
+      const updated = await updateAdminBooking(id, { status });
+      setBookings((prev) => sortBookings(prev.map((b) => (b.id === id ? updated : b))));
+      if (editingRef.current?.id === id) {
+        setEditingBooking((prev) => (prev ? { ...prev, status: updated.status } : null));
+      }
+      toast.success(`Status changed to ${status}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update status');
+    } finally {
+      setTimeout(() => setChangingStatusId(null), 500);
     }
-    toast.success(`Status changed to ${status}`);
   }, [statusPendingConfirm, toast]);
 
   const cancelStatusChange = useCallback(() => {
@@ -428,27 +430,27 @@ export default function SchedulePage() {
   }, []);
 
   const handleDelete = useCallback(
-    (id: string) => {
-      setBookings((prev) => {
-        const next = prev.filter((b) => b.id !== id);
-        saveBookings(next);
-        return next;
-      });
-      closeDialog();
-      toast.success('Booking deleted');
+    async (id: string) => {
+      try {
+        await deleteAdminBooking(id);
+        setBookings((prev) => prev.filter((b) => b.id !== id));
+        closeDialog();
+        toast.success('Booking deleted');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to delete booking');
+      }
     },
     [closeDialog, toast],
   );
 
-  const handleGenerateReviewCode = useCallback((id: string) => {
-    setBookings((prev) => {
-      const next = prev.map((b) =>
-        b.id === id ? { ...b, reviewCode: generateReviewCode() } : b,
-      );
-      saveBookings(next);
-      return next;
-    });
-    toast.success('Review code generated');
+  const handleGenerateReviewCode = useCallback(async (id: string) => {
+    try {
+      const updated = await generateAdminReviewCode(id);
+      setBookings((prev) => sortBookings(prev.map((b) => (b.id === id ? updated : b))));
+      toast.success('Review code generated');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to generate review code');
+    }
   }, [toast]);
 
   const selectedDateLabel = useMemo(() => format(selectedDate, 'EEEE, MMMM d, yyyy'), [selectedDate]);
@@ -511,6 +513,11 @@ export default function SchedulePage() {
 
             <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
               <section className={`lg:w-8/12 ${mobileTab !== 'calendar' ? 'hidden lg:block' : ''}`}>
+                {isLoadingBookings ? (
+                  <div className="flex min-h-[420px] items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-mid)]/30 text-sm text-[var(--text-dim)]">
+                    Loading schedule...
+                  </div>
+                ) : (
                 <CalendarGrid
                   currentMonth={currentMonth}
                   bookings={bookings}
@@ -521,6 +528,7 @@ export default function SchedulePage() {
                   onEditBooking={openEditBooking}
                   changingStatusId={changingStatusId}
                 />
+                )}
               </section>
 
               <section className={`lg:w-4/12 ${mobileTab !== 'bookings' ? 'hidden lg:block' : ''}`}>

@@ -1,22 +1,58 @@
-const ADMIN_CREDENTIALS = { username: 'admin', password: 'admin123' };
+const AUTH_STATE_COOKIE = 'admin_auth_state';
 
-export function authenticate(username: string, password: string): boolean {
-  return username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password;
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const found = document.cookie
+    .split('; ')
+    .find((entry) => entry.startsWith(`${name}=`));
+  return found ? decodeURIComponent(found.split('=')[1] || '') : null;
 }
 
 export function isAuthenticated(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem('admin_auth') === 'true';
+  return readCookie(AUTH_STATE_COOKIE) === '1';
 }
 
-export function login(username: string, password: string): boolean {
-  if (!authenticate(username, password)) return false;
-  localStorage.setItem('admin_auth', 'true');
-  return true;
+export async function checkSession(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/session', {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+
+    if (!res.ok) return false;
+    const data = (await res.json()) as { authenticated?: boolean };
+    return data.authenticated === true;
+  } catch {
+    return false;
+  }
 }
 
-export function logout() {
-  localStorage.removeItem('admin_auth');
+export async function login(username: string, password: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ username, password }),
+    });
+
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function logout(): Promise<void> {
+  if (typeof document !== 'undefined') {
+    document.cookie = `${AUTH_STATE_COOKIE}=; Max-Age=0; path=/; samesite=lax`;
+  }
+  try {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+  } catch {}
 }
 
 export function getLastPage(): string | null {

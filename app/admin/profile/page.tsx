@@ -6,10 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import { LockIcon, CheckIcon, AlertIcon } from '@/components/shared/icons';
 import { isAuthenticated, setLastPage } from '@/lib/services/auth';
-import { loadProfile, saveProfile } from '@/lib/constants';
+import { type AdminProfile, loadProfile, saveProfile } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
@@ -18,16 +17,26 @@ import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-l
 export default function ProfilePage() {
   const router = useRouter();
 
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth >= 1280;
+  });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 1024;
+  });
   const manualToggleRef = useRef(false);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
-  const [profile, setProfile] = useState(loadProfile());
+  const [profile, setProfile] = useState<AdminProfile>(loadProfile());
   const [saved, setSaved] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [resettingAvatar, setResettingAvatar] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState<'idle' | 'uploading' | 'finalizing'>('idle');
 
   const { toast } = useToast();
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -41,15 +50,18 @@ export default function ProfilePage() {
   }, [router]);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 1024);
-    check();
+    const check = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setMobileSidebarOpen(false);
+        document.body.style.overflow = '';
+      }
+    };
+
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
-
-  useEffect(() => {
-    if (!isMobile) setMobileSidebarOpen(false);
-  }, [isMobile]);
 
   useEffect(() => {
     if (isMobile) return;
@@ -57,7 +69,7 @@ export default function ProfilePage() {
       if (manualToggleRef.current) return;
       setSidebarExpanded(window.innerWidth >= 1280);
     };
-    setSidebarExpanded(window.innerWidth >= 1280);
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [isMobile]);
@@ -80,6 +92,146 @@ export default function ProfilePage() {
     toast.success('Profile updated');
   };
 
+  const handleOpenAvatarPicker = () => {
+    avatarFileInputRef.current?.click();
+  };
+
+  const extractProxyFileId = (avatarUrl: string | undefined): string | null => {
+    if (!avatarUrl) return null;
+    const match = avatarUrl.match(/\/api\/media\/([^/?#]+)/);
+    return match?.[1] || null;
+  };
+
+  const removePreviousAvatarFromDrive = async (fileId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/media/${fileId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const payload = (await response.json()) as { success?: boolean };
+      return Boolean(payload.success);
+    } catch {
+      return false;
+    }
+  };
+
+  const uploadAvatarFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    const previousFileId = extractProxyFileId(profile.avatarUrl);
+
+    setUploadingAvatar(true);
+    setUploadStage('uploading');
+    setUploadProgress(10);
+
+    let progressTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 90) return prev;
+        return prev + Math.max(1, Math.round((90 - prev) / 6));
+      });
+    }, 180);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (previousFileId) {
+        formData.append('previousFileId', previousFileId);
+      }
+
+      const response = await fetch('/api/media/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const payload = (await response.json()) as {
+        success?: boolean;
+        message?: string;
+        file?: { proxyUrl?: string; driveViewUrl?: string };
+        previousFileDeleted?: boolean;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || 'Failed to upload profile image');
+      }
+
+      const nextAvatarUrl = payload.file?.proxyUrl || payload.file?.driveViewUrl;
+      if (!nextAvatarUrl) {
+        throw new Error('Upload finished but no image URL was returned');
+      }
+
+      setUploadStage('finalizing');
+      setUploadProgress(96);
+
+      const updatedProfile = {
+        ...profile,
+        avatarUrl: nextAvatarUrl,
+      };
+
+      setProfile(updatedProfile);
+      saveProfile(updatedProfile);
+      if (previousFileId && payload.previousFileDeleted) {
+        toast.success('Profile image updated and previous image removed');
+      } else {
+        toast.success('Profile image updated');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to upload profile image';
+      toast.error(message);
+    } finally {
+      if (progressTimer) {
+        clearInterval(progressTimer);
+        progressTimer = null;
+      }
+
+      setUploadProgress(100);
+      await new Promise((resolve) => setTimeout(resolve, 240));
+
+      setUploadingAvatar(false);
+      setUploadStage('idle');
+      setUploadProgress(0);
+    }
+  };
+
+  const handleResetAvatar = async () => {
+    if (uploadingAvatar || resettingAvatar) return;
+
+    const previousFileId = extractProxyFileId(profile.avatarUrl);
+    const updatedProfile = { ...profile, avatarUrl: '/person-2.png' };
+
+    setProfile(updatedProfile);
+    saveProfile(updatedProfile);
+
+    if (!previousFileId) {
+      toast.success('Profile image reset');
+      return;
+    }
+
+    setResettingAvatar(true);
+    const deleted = await removePreviousAvatarFromDrive(previousFileId);
+    setResettingAvatar(false);
+
+    if (deleted) {
+      toast.success('Profile image reset and previous image removed');
+    } else {
+      toast.success('Profile image reset');
+      toast.error('Could not remove previous Drive image automatically');
+    }
+  };
+
+  const handleAvatarFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await uploadAvatarFile(file);
+    event.target.value = '';
+  };
+
   const handleChangePassword = () => {
     setPasswordError('');
     setPasswordSaved(false);
@@ -97,7 +249,6 @@ export default function ProfilePage() {
       localStorage.setItem('admin_password', newPassword);
     } catch {}
 
-    setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
     setPasswordSaved(true);
@@ -130,7 +281,7 @@ export default function ProfilePage() {
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-4">
-                  <Avatar src="/person-2.png" alt="Profile" fallback="AW" className="size-14" />
+                  <Avatar src={profile.avatarUrl} alt="Profile" fallback={profile.name || 'AW'} className="size-14" />
                   <div>
                     <CardTitle className="text-lg">Personal Information</CardTitle>
                     <CardDescription>Your name and email address</CardDescription>
@@ -138,6 +289,38 @@ export default function ProfilePage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-[var(--text-muted)]">Profile picture</label>
+                  <input
+                    ref={avatarFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarFileChange}
+                  />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpenAvatarPicker}
+                      disabled={uploadingAvatar || resettingAvatar}
+                    >
+                      {uploadingAvatar ? 'Uploading...' : 'Upload New Photo'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleResetAvatar}
+                      disabled={uploadingAvatar || resettingAvatar}
+                    >
+                      {resettingAvatar ? 'Resetting...' : 'Reset to Default'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-[var(--text-dim)]">
+                    JPG, PNG, or WEBP image. Uploads to Google Drive and replaces previous profile image.
+                  </p>
+                  <p className="text-xs text-[var(--text-dim)]">Recommended under 5MB for faster upload.</p>
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-[var(--text-muted)]">Name</label>
                   <Input
@@ -224,6 +407,31 @@ export default function ProfilePage() {
           </AdminPageShell>
         </main>
       </div>
+
+      {uploadingAvatar && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 backdrop-blur-sm">
+          <div className="w-[92%] max-w-sm rounded-2xl border border-white/15 bg-[var(--bg-start)]/95 p-5 shadow-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="size-8 animate-spin rounded-full border-2 border-[var(--text-dim)] border-t-[var(--text)]" />
+              <div>
+                <p className="text-sm font-semibold text-[var(--text)]">Uploading profile image</p>
+                <p className="text-xs text-[var(--text-dim)]" aria-live="polite">
+                  {uploadStage === 'finalizing' ? 'Saving and refreshing preview...' : 'Sending file to Google Drive...'}
+                </p>
+              </div>
+            </div>
+
+            <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--button)]">
+              <div
+                className="h-full rounded-full bg-[var(--text)] transition-[width] duration-200 ease-out"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+
+            <p className="mt-2 text-right text-xs tabular-nums text-[var(--text-dim)]">{uploadProgress}%</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

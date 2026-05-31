@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+}
+
+enum MediaType {
+  image
+  video
+}
+
+enum SocialPlatform {
+  x
+  instagram
+  threads
+  tiktok
+  whatsapp
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  fullName     String   @map("full_name")
+  email        String   @unique
+  avatarUrl    String?  @map("avatar_url")
+  passwordHash String
+  role         String   @default("admin")
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("admin_users")
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  date            DateTime
+  timeLabel       String
+  name            String
+  email           String
+  phone           String?
+  service         String
+  status          BookingStatus @default(pending)
+  notes           String?
+  reviewCode      String?
+  reviewSubmitted Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([date])
+  @@index([status])
+  @@map("bookings")
+}
+
+model Review {
+  id        String        @id @default(cuid())
+  author    String
+  role      String?
+  quote     String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  media     ReviewMedia[]
+
+  @@map("reviews")
+}
+
+model ReviewMedia {
+  id        String    @id @default(cuid())
+  reviewId  String
+  src       String
+  type      MediaType
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@map("review_media")
+}
+
+model VaultCollection {
+  id         String      @id @default(cuid())
+  title      String
+  category   String
+  thumb      String
+  isVideo    Boolean     @default(false)
+  columnSpan Int         @default(1)
+  rowSpan    Int         @default(1)
+  sortOrder  Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  media      VaultMedia[]
+
+  @@index([sortOrder])
+  @@map("vault_collections")
+}
+
+model VaultMedia {
+  id           String    @id @default(cuid())
+  collectionId String
+  src          String
+  type         MediaType
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  collection VaultCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@index([collectionId])
+  @@map("vault_media")
+}
+
+model SocialLink {
+  id        String         @id @default(cuid())
+  platform  SocialPlatform @unique
+  url       String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("social_links")
+}
+
+model SiteContent {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("site_content")
+}

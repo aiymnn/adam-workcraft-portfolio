@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
 import { GridIcon, PersonIcon, CalendarIcon, ShareIcon, FolderIcon, ExternalLinkIcon, LogoutIcon, ChevronDownIcon, XIcon } from '@/components/shared/icons';
-import { SOCIAL_PLATFORMS, type SocialPlatformId, loadProfile } from '@/lib/constants';
+import { SOCIAL_PLATFORMS, type SocialPlatformId, type AdminProfile, loadProfile } from '@/lib/constants';
 import { logout } from '@/lib/services/auth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -60,9 +60,9 @@ function ProfileMenuItems({
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     toast.info('Signed out');
-    logout();
+    await logout();
     router.push('/admin/login');
   };
 
@@ -109,7 +109,7 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
     social: true,
   });
   const [profileOpen, setProfileOpen] = useState(false);
-  const [profile, setProfile] = useState({ name: '', email: '' });
+  const [profile, setProfile] = useState<AdminProfile>(loadProfile());
   useEffect(() => { setProfile(loadProfile()); }, []);
 
   const toggleParent = useCallback((id: string) => {
@@ -199,7 +199,7 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
             className="flex w-full items-center justify-center rounded-lg py-2 text-[var(--text-dim)] transition-colors hover:bg-[var(--button)] hover:text-[var(--text-muted)]"
             title="Profile"
           >
-            <Avatar src="/person-2.png" alt="Profile" fallback="AW" className="size-7" />
+            <Avatar src={profile.avatarUrl} alt="Profile" fallback={profile.name || 'AW'} className="size-7" />
           </button>
         ) : (
           <div>
@@ -211,7 +211,7 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
                   : 'text-[var(--text-dim)] hover:bg-[var(--button)] hover:text-[var(--text-muted)]'
               }`}
             >
-              <Avatar src="/person-2.png" alt="Profile" fallback="AW" className="size-7" />
+              <Avatar src={profile.avatarUrl} alt="Profile" fallback={profile.name || 'AW'} className="size-7" />
               <span className="flex-1 truncate text-left">{profile.name || 'Adam Workcraft'}</span>
               <ChevronDownIcon
                 className={`size-3 transition-transform duration-200 ${profileOpen ? 'rotate-0' : '-rotate-90'}`}
@@ -243,7 +243,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
     social: true,
   });
   const [profileOpen, setProfileOpen] = useState(false);
-  const [profile, setProfile] = useState({ name: '', email: '' });
+  const [profile, setProfile] = useState<AdminProfile>(loadProfile());
   useEffect(() => { setProfile(loadProfile()); }, []);
 
   const handleNav = (href: string) => {
@@ -349,7 +349,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
                 : 'text-[var(--text-dim)] hover:bg-[var(--button)] hover:text-[var(--text-muted)]'
             }`}
           >
-            <Avatar src="/person-2.png" alt="Profile" fallback="AW" className="size-7" />
+            <Avatar src={profile.avatarUrl} alt="Profile" fallback={profile.name || 'AW'} className="size-7" />
             <span className="flex-1 truncate text-left">{profile.name || 'Adam Workcraft'}</span>
             <ChevronDownIcon
               className={`size-3 transition-transform duration-200 ${profileOpen ? 'rotate-0' : '-rotate-90'}`}
