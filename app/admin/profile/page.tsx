@@ -6,13 +6,112 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
-import { LockIcon, CheckIcon, AlertIcon } from '@/components/shared/icons';
+import { LockIcon, CheckIcon, AlertIcon, XIcon } from '@/components/shared/icons';
 import { isAuthenticated, setLastPage } from '@/lib/services/auth';
-import { type AdminProfile, loadProfile, saveProfile } from '@/lib/constants';
+import { DEFAULT_PROFILE, type AdminProfile, loadProfile, saveProfile } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const WEAK_PASSWORDS = new Set([
+  'password',
+  'password123',
+  '12345678',
+  '123456789',
+  'qwerty',
+  'letmein',
+  'admin123',
+  'welcome123',
+]);
+
+function validateProfileName(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return 'Name is required.';
+  if (trimmed.length < 2) return 'Name must be at least 2 characters.';
+  if (trimmed.length > 80) return 'Name must be 80 characters or less.';
+  return null;
+}
+
+function validateProfileEmail(value: string): string | null {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return 'Email is required.';
+  if (!EMAIL_REGEX.test(trimmed)) return 'Enter a valid email address.';
+  if (trimmed.length > 120) return 'Email must be 120 characters or less.';
+  return null;
+}
+
+function validatePassword(value: string, profile: AdminProfile): string | null {
+  if (value.length < 8) return 'Use at least 8 characters.';
+  if (value.length > 128) return 'Password is too long.';
+  if (/\s/.test(value)) return 'Password cannot contain spaces.';
+  if (!/[a-z]/.test(value)) return 'Add at least one lowercase letter.';
+  if (!/[A-Z]/.test(value)) return 'Add at least one uppercase letter.';
+  if (!/[0-9]/.test(value)) return 'Add at least one number.';
+  if (!/[^A-Za-z0-9]/.test(value)) return 'Add at least one symbol.';
+  if (/(.)\1\1/.test(value)) return 'Avoid repeated characters like "aaa".';
+
+  const lowercase = value.toLowerCase();
+  if (WEAK_PASSWORDS.has(lowercase)) return 'Password is too common.';
+
+  const emailLocalPart = profile.email.split('@')[0]?.toLowerCase().trim();
+  if (emailLocalPart && emailLocalPart.length >= 3 && lowercase.includes(emailLocalPart)) {
+    return 'Do not include your email name in password.';
+  }
+
+  const nameToken = profile.name
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .find((token) => token.length >= 3);
+  if (nameToken && lowercase.includes(nameToken)) {
+    return 'Do not include your name in password.';
+  }
+
+  return null;
+}
+
+function getPasswordRuleChecks(value: string, profile: AdminProfile) {
+  const lowercase = value.toLowerCase();
+  const emailLocalPart = profile.email.split('@')[0]?.toLowerCase().trim();
+  const nameToken = profile.name
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .find((token) => token.length >= 3);
+
+  return [
+    { label: 'At least 8 characters', passed: value.length >= 8 },
+    { label: 'Has lowercase letter', passed: /[a-z]/.test(value) },
+    { label: 'Has uppercase letter', passed: /[A-Z]/.test(value) },
+    { label: 'Has number', passed: /[0-9]/.test(value) },
+    { label: 'Has symbol', passed: /[^A-Za-z0-9]/.test(value) },
+    { label: 'No spaces', passed: !/\s/.test(value) },
+    { label: 'No repeated characters (aaa)', passed: !/(.)\1\1/.test(value) },
+    { label: 'Not a common password', passed: !WEAK_PASSWORDS.has(lowercase) },
+    {
+      label: 'Does not include your email name',
+      passed: !(emailLocalPart && emailLocalPart.length >= 3 && lowercase.includes(emailLocalPart)),
+    },
+    {
+      label: 'Does not include your name',
+      passed: !(nameToken && lowercase.includes(nameToken)),
+    },
+  ];
+}
+
+function getPasswordStrength(passedCount: number, totalCount: number) {
+  if (totalCount === 0 || passedCount <= 4) {
+    return { label: 'Weak', tone: 'text-red-300 border-red-400/40 bg-red-500/10' };
+  }
+
+  if (passedCount <= 8) {
+    return { label: 'Medium', tone: 'text-amber-300 border-amber-400/40 bg-amber-500/10' };
+  }
+
+  return { label: 'Strong', tone: 'text-emerald-300 border-emerald-400/40 bg-emerald-500/10' };
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -29,7 +128,7 @@ export default function ProfilePage() {
   const manualToggleRef = useRef(false);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
-  const [profile, setProfile] = useState<AdminProfile>(loadProfile());
+  const [profile, setProfile] = useState<AdminProfile>(DEFAULT_PROFILE);
   const [saved, setSaved] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [resettingAvatar, setResettingAvatar] = useState(false);
@@ -37,10 +136,16 @@ export default function ProfilePage() {
   const [uploadStage, setUploadStage] = useState<'idle' | 'uploading' | 'finalizing'>('idle');
 
   const { toast } = useToast();
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaved, setPasswordSaved] = useState(false);
+  const passwordChecks = getPasswordRuleChecks(newPassword, profile);
+  const passedPasswordChecks = passwordChecks.filter((check) => check.passed).length;
+  const passwordStrength = getPasswordStrength(passedPasswordChecks, passwordChecks.length);
+  const allPasswordChecksPassed = passwordChecks.every((check) => check.passed);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !isAuthenticated()) {
@@ -48,6 +153,13 @@ export default function ProfilePage() {
       router.replace('/admin/login');
     }
   }, [router]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setProfile(loadProfile());
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     const check = () => {
@@ -86,7 +198,28 @@ export default function ProfilePage() {
   };
 
   const handleSaveProfile = () => {
-    saveProfile(profile);
+    const nextName = profile.name.trim();
+    const nextEmail = profile.email.trim().toLowerCase();
+
+    const nextNameError = validateProfileName(nextName);
+    const nextEmailError = validateProfileEmail(nextEmail);
+
+    setNameError(nextNameError ?? '');
+    setEmailError(nextEmailError ?? '');
+
+    if (nextNameError || nextEmailError) {
+      toast.error('Please fix profile validation errors before saving.');
+      return;
+    }
+
+    const nextProfile = {
+      ...profile,
+      name: nextName,
+      email: nextEmail,
+    };
+
+    setProfile(nextProfile);
+    saveProfile(nextProfile);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     toast.success('Profile updated');
@@ -236,10 +369,30 @@ export default function ProfilePage() {
     setPasswordError('');
     setPasswordSaved(false);
 
-    if (newPassword.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
+    const nextName = profile.name.trim();
+    const nextEmail = profile.email.trim().toLowerCase();
+    const nextNameError = validateProfileName(nextName);
+    const nextEmailError = validateProfileEmail(nextEmail);
+
+    if (nextNameError || nextEmailError) {
+      setNameError(nextNameError ?? '');
+      setEmailError(nextEmailError ?? '');
+      toast.error('Save a valid name and email before changing password.');
       return;
     }
+
+    const normalizedProfile = {
+      ...profile,
+      name: nextName,
+      email: nextEmail,
+    };
+
+    const passwordValidationError = validatePassword(newPassword, normalizedProfile);
+    if (passwordValidationError) {
+      setPasswordError(passwordValidationError);
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       setPasswordError('Passwords do not match');
       return;
@@ -325,16 +478,28 @@ export default function ProfilePage() {
                   <label className="text-sm font-medium text-[var(--text-muted)]">Name</label>
                   <Input
                     value={profile.name}
-                    onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
+                    onChange={(e) => {
+                      setNameError('');
+                      setProfile((p) => ({ ...p, name: e.target.value }));
+                    }}
                   />
+                  {nameError && (
+                    <p className="text-xs text-red-400">{nameError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-[var(--text-muted)]">Email</label>
                   <Input
                     type="email"
                     value={profile.email}
-                    onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))}
+                    onChange={(e) => {
+                      setEmailError('');
+                      setProfile((p) => ({ ...p, email: e.target.value }));
+                    }}
                   />
+                  {emailError && (
+                    <p className="text-xs text-red-400">{emailError}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 pt-1">
                   <Button
@@ -370,9 +535,32 @@ export default function ProfilePage() {
                   <Input
                     type="password"
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Min. 6 characters"
+                    onChange={(e) => {
+                      setPasswordError('');
+                      setNewPassword(e.target.value);
+                    }}
+                    placeholder="Min. 8 chars, upper/lower/number/symbol"
                   />
+                  {newPassword && (
+                    <div className="space-y-1 rounded-lg border border-[var(--border)]/60 bg-[var(--button)]/30 p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-xs text-[var(--text-dim)]">Password strength</span>
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${passwordStrength.tone}`}>
+                          {passwordStrength.label}
+                        </span>
+                      </div>
+                      {passwordChecks.map((check) => (
+                        <div key={check.label} className="flex items-center gap-2 text-xs">
+                          {check.passed ? (
+                            <CheckIcon className="size-3.5 text-emerald-400" />
+                          ) : (
+                            <XIcon className="size-3.5 text-red-400" />
+                          )}
+                          <span className={check.passed ? 'text-emerald-300' : 'text-red-300'}>{check.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-[var(--text-muted)]">Confirm New Password</label>
@@ -392,7 +580,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-3 pt-1">
                   <Button
                     onClick={handleChangePassword}
-                    disabled={!newPassword || !confirmPassword}
+                    disabled={!newPassword || !confirmPassword || !allPasswordChecksPassed}
                     className="border border-[var(--border)] bg-[var(--text)] text-[var(--bg-end)] hover:opacity-90 disabled:opacity-40"
                   >
                     {passwordSaved ? (

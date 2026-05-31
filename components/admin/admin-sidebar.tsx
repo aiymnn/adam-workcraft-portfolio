@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
 import { GridIcon, PersonIcon, CalendarIcon, ShareIcon, FolderIcon, ExternalLinkIcon, LogoutIcon, ChevronDownIcon, XIcon } from '@/components/shared/icons';
-import { SOCIAL_PLATFORMS, type SocialPlatformId, type AdminProfile, loadProfile } from '@/lib/constants';
+import { DEFAULT_PROFILE, PROFILE_UPDATED_EVENT, SOCIAL_PLATFORMS, type SocialPlatformId, type AdminProfile, loadProfile } from '@/lib/constants';
 import { logout } from '@/lib/services/auth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -109,8 +109,20 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
     social: true,
   });
   const [profileOpen, setProfileOpen] = useState(false);
-  const [profile, setProfile] = useState<AdminProfile>(loadProfile());
-  useEffect(() => { setProfile(loadProfile()); }, []);
+  const [profile, setProfile] = useState<AdminProfile>(DEFAULT_PROFILE);
+  useEffect(() => {
+    const refreshProfile = () => setProfile(loadProfile());
+
+    const frame = window.requestAnimationFrame(refreshProfile);
+    window.addEventListener(PROFILE_UPDATED_EVENT, refreshProfile as EventListener);
+    window.addEventListener('storage', refreshProfile);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener(PROFILE_UPDATED_EVENT, refreshProfile as EventListener);
+      window.removeEventListener('storage', refreshProfile);
+    };
+  }, []);
 
   const toggleParent = useCallback((id: string) => {
     setOpenParents((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -243,8 +255,20 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
     social: true,
   });
   const [profileOpen, setProfileOpen] = useState(false);
-  const [profile, setProfile] = useState<AdminProfile>(loadProfile());
-  useEffect(() => { setProfile(loadProfile()); }, []);
+  const [profile, setProfile] = useState<AdminProfile>(DEFAULT_PROFILE);
+  useEffect(() => {
+    const refreshProfile = () => setProfile(loadProfile());
+
+    const frame = window.requestAnimationFrame(refreshProfile);
+    window.addEventListener(PROFILE_UPDATED_EVENT, refreshProfile as EventListener);
+    window.addEventListener('storage', refreshProfile);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener(PROFILE_UPDATED_EVENT, refreshProfile as EventListener);
+      window.removeEventListener('storage', refreshProfile);
+    };
+  }, []);
 
   const handleNav = (href: string) => {
     router.push(href);

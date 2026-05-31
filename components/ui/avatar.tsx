@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, type ImgHTMLAttributes, type HTMLAttributes } from 'react';
+import { forwardRef, useEffect, useState, type HTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
@@ -11,6 +11,12 @@ interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
 
 const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
   ({ className, src, alt, fallback, ...props }, ref) => {
+    const [imageFailed, setImageFailed] = useState(false);
+
+    useEffect(() => {
+      setImageFailed(false);
+    }, [src]);
+
     const initials = fallback
       ? fallback
           .split(' ')
@@ -26,8 +32,13 @@ const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
         className={cn('relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--button)]', className)}
         {...props}
       >
-        {src ? (
-          <img src={src} alt={alt ?? ''} className="size-full object-cover" />
+        {src && !imageFailed ? (
+          <img
+            src={src}
+            alt={alt ?? ''}
+            className="size-full object-cover"
+            onError={() => setImageFailed(true)}
+          />
         ) : (
           <span className="text-sm font-medium text-[var(--text-muted)]">{initials}</span>
         )}

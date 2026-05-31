@@ -62,6 +62,7 @@ export function saveSocialLinks(links: Record<SocialPlatformId, string>) {
 }
 
 export const PROFILE_STORAGE_KEY = 'admin_profile';
+export const PROFILE_UPDATED_EVENT = 'admin_profile_updated';
 
 export interface AdminProfile {
   name: string;
@@ -69,7 +70,7 @@ export interface AdminProfile {
   avatarUrl: string;
 }
 
-const DEFAULT_PROFILE: AdminProfile = {
+export const DEFAULT_PROFILE: AdminProfile = {
   name: 'Adam Workcraft',
   email: 'hello@adamworkcraft.com',
   avatarUrl: '/person-2.png',
@@ -77,7 +78,7 @@ const DEFAULT_PROFILE: AdminProfile = {
 
 export function loadProfile() {
   if (typeof window === 'undefined') {
-    return DEFAULT_PROFILE;
+    return { ...DEFAULT_PROFILE };
   }
   try {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
@@ -89,11 +90,15 @@ export function loadProfile() {
       };
     }
   } catch {}
-  return DEFAULT_PROFILE;
+  return { ...DEFAULT_PROFILE };
 }
 
 export function saveProfile(profile: AdminProfile) {
   try {
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
   } catch {}
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: profile }));
+  }
 }
