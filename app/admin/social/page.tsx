@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
+import { SocialLinksLoadingSkeleton } from '@/components/admin/loading';
 
 export default function SocialPage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function SocialPage() {
   const manualToggleRef = useRef(false);
 
   const [links, setLinks] = useState<Record<string, string>>({});
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [saved, setSaved] = useState(false);
   const { toast } = useToast();
 
@@ -34,6 +36,7 @@ export default function SocialPage() {
 
   useEffect(() => {
     setLinks(loadSocialLinks());
+    setIsBootstrapping(false);
   }, []);
 
   useEffect(() => {
@@ -115,45 +118,49 @@ export default function SocialPage() {
               }
             />
 
-            <div className="grid gap-4 md:grid-cols-2">
-              {SOCIAL_PLATFORMS.map((platform) => (
-                <Card key={platform.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">{platform.label}</CardTitle>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => router.push(`/admin/social/${platform.id}`)}
-                          className="flex size-7 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
-                          title="Edit on separate page"
-                        >
-                          <EditIcon className="size-3.5" />
-                        </button>
-                        {(links[platform.id] || '').trim() && (
-                          <a
-                            href={links[platform.id]}
-                            target="_blank"
-                            rel="noopener noreferrer"
+            {isBootstrapping ? (
+              <SocialLinksLoadingSkeleton />
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {SOCIAL_PLATFORMS.map((platform) => (
+                  <Card key={platform.id}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm">{platform.label}</CardTitle>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => router.push(`/admin/social/${platform.id}`)}
                             className="flex size-7 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
-                            title="Open link"
+                            title="Edit on separate page"
                           >
-                            <ExternalLinkIcon className="size-3.5" />
-                          </a>
-                        )}
+                            <EditIcon className="size-3.5" />
+                          </button>
+                          {(links[platform.id] || '').trim() && (
+                            <a
+                              href={links[platform.id]}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex size-7 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
+                              title="Open link"
+                            >
+                              <ExternalLinkIcon className="size-3.5" />
+                            </a>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <CardDescription>Enter your {platform.label} profile URL</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Input
-                      value={links[platform.id] || ''}
-                      onChange={(e) => setLinks((prev) => ({ ...prev, [platform.id]: e.target.value }))}
-                      placeholder="https://..."
-                    />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <CardDescription>Enter your {platform.label} profile URL</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Input
+                        value={links[platform.id] || ''}
+                        onChange={(e) => setLinks((prev) => ({ ...prev, [platform.id]: e.target.value }))}
+                        placeholder="https://..."
+                      />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </AdminPageShell>
         </main>
       </div>

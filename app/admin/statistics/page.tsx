@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
-import { StatisticsLoadingSkeleton } from '@/components/admin/statistics/statistics-loading-skeleton';
+import { StatisticsLoadingSkeleton } from '@/components/admin/loading';
 import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import { fetchAdminVisits, type VisitItem, type VisitSummary } from '@/lib/services/admin-statistics';
 

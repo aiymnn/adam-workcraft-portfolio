@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
+import { ScheduleLoadingSkeleton } from '@/components/admin/loading';
 import ScheduleDialog from './_components/dialog';
 import RightPanel from './_components/right-panel';
 
@@ -456,6 +457,7 @@ export default function SchedulePage() {
   const selectedDateLabel = useMemo(() => format(selectedDate, 'EEEE, MMMM d, yyyy'), [selectedDate]);
 
   const isToday = useMemo(() => selectedStr === todayStr, [selectedStr, todayStr]);
+  const showInitialSkeleton = isLoadingBookings && bookings.length === 0;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -493,59 +495,59 @@ export default function SchedulePage() {
               }
             />
 
-            <StatsCards stats={stats} trends={{ today: stats.todayTrend, week: stats.weekTrend, pending: stats.pendingTrend }} />
+            {showInitialSkeleton ? (
+              <ScheduleLoadingSkeleton mobileTab={mobileTab} />
+            ) : (
+              <>
+                <StatsCards stats={stats} trends={{ today: stats.todayTrend, week: stats.weekTrend, pending: stats.pendingTrend }} />
 
-            <div className="mb-4 flex rounded-lg border border-[var(--border)] p-0.5 lg:hidden">
-              {(['calendar', 'bookings'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setMobileTab(t)}
-                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
-                    mobileTab === t
-                      ? 'bg-[var(--button-hover)] text-[var(--text)]'
-                      : 'text-[var(--text-dim)]'
-                  }`}
-                >
-                  {t === 'calendar' ? 'Calendar' : 'Bookings'}
-                </button>
-              ))}
-            </div>
+                <div className="mb-4 flex rounded-lg border border-[var(--border)] p-0.5 lg:hidden">
+                  {(['calendar', 'bookings'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setMobileTab(t)}
+                      className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+                        mobileTab === t
+                          ? 'bg-[var(--button-hover)] text-[var(--text)]'
+                          : 'text-[var(--text-dim)]'
+                      }`}
+                    >
+                      {t === 'calendar' ? 'Calendar' : 'Bookings'}
+                    </button>
+                  ))}
+                </div>
 
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
-              <section className={`lg:w-8/12 ${mobileTab !== 'calendar' ? 'hidden lg:block' : ''}`}>
-                {isLoadingBookings ? (
-                  <div className="flex min-h-[420px] items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-mid)]/30 text-sm text-[var(--text-dim)]">
-                    Loading schedule...
-                  </div>
-                ) : (
-                <CalendarGrid
-                  currentMonth={currentMonth}
-                  bookings={bookings}
-                  selectedDate={selectedDate}
-                  onSelectDate={setSelectedDate}
-                  onPrevMonth={() => setCurrentMonth((m) => subMonths(m, 1))}
-                  onNextMonth={() => setCurrentMonth((m) => addMonths(m, 1))}
-                  onEditBooking={openEditBooking}
-                  changingStatusId={changingStatusId}
-                />
-                )}
-              </section>
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
+                  <section className={`lg:w-8/12 ${mobileTab !== 'calendar' ? 'hidden lg:block' : ''}`}>
+                    <CalendarGrid
+                      currentMonth={currentMonth}
+                      bookings={bookings}
+                      selectedDate={selectedDate}
+                      onSelectDate={setSelectedDate}
+                      onPrevMonth={() => setCurrentMonth((m) => subMonths(m, 1))}
+                      onNextMonth={() => setCurrentMonth((m) => addMonths(m, 1))}
+                      onEditBooking={openEditBooking}
+                      changingStatusId={changingStatusId}
+                    />
+                  </section>
 
-              <section className={`lg:w-4/12 ${mobileTab !== 'bookings' ? 'hidden lg:block' : ''}`}>
-                <RightPanel
-                  selectedDate={selectedDate}
-                  dateLabel={selectedDateLabel}
-                  isToday={isToday}
-                  dayBookings={dayBookings}
-                  bookingsCount={bookings.length}
-                  changingStatusId={changingStatusId}
-                  onNewBooking={openNewBooking}
-                  onEditBooking={openEditBooking}
-                  onRequestStatusChange={handleRequestStatusChange}
-                  onGenerateReviewCode={handleGenerateReviewCode}
-                />
-              </section>
-            </div>
+                  <section className={`lg:w-4/12 ${mobileTab !== 'bookings' ? 'hidden lg:block' : ''}`}>
+                    <RightPanel
+                      selectedDate={selectedDate}
+                      dateLabel={selectedDateLabel}
+                      isToday={isToday}
+                      dayBookings={dayBookings}
+                      bookingsCount={bookings.length}
+                      changingStatusId={changingStatusId}
+                      onNewBooking={openNewBooking}
+                      onEditBooking={openEditBooking}
+                      onRequestStatusChange={handleRequestStatusChange}
+                      onGenerateReviewCode={handleGenerateReviewCode}
+                    />
+                  </section>
+                </div>
+              </>
+            )}
           </AdminPageShell>
         </main>
       </div>

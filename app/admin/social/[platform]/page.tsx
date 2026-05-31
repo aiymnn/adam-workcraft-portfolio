@@ -10,24 +10,29 @@ import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar'
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
 import PlatformDashboard from '../_components/platform-dashboard';
 import { getDummyData } from '../_components/dummy-data';
+import { PlatformDashboardLoadingSkeleton } from '@/components/admin/loading';
 
 export default function PlatformPage() {
   const router = useRouter();
   const params = useParams();
   const platformId = params.platform as SocialPlatformId;
+  const dashboardData = useMemo(() => getDummyData(platformId), [platformId]);
 
   const platform = SOCIAL_PLATFORMS.find((p) => p.id === platformId);
 
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const manualToggleRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !isAuthenticated()) {
       setLastPage(`/admin/social/${platformId}`);
       router.replace('/admin/login');
+      return;
     }
+    setIsBootstrapping(false);
   }, [router, platformId]);
 
   useEffect(() => {
@@ -112,7 +117,11 @@ export default function PlatformPage() {
               }
             />
 
-            <PlatformDashboard data={useMemo(() => getDummyData(platformId), [platformId])} platformId={platformId} />
+            {isBootstrapping ? (
+              <PlatformDashboardLoadingSkeleton />
+            ) : (
+              <PlatformDashboard data={dashboardData} platformId={platformId} />
+            )}
           </AdminPageShell>
         </main>
       </div>

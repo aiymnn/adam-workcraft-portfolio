@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TrendingUpIcon, TrendingDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/icons';
 import AdminHeader from '@/components/admin/admin-header';
-import { DashboardLoadingSkeleton } from '@/components/admin/dashboard/dashboard-loading-skeleton';
+import { DashboardLoadingSkeleton } from '@/components/admin/loading';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
 
