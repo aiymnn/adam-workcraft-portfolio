@@ -10,6 +10,12 @@ export const runtime = 'nodejs';
 
 const DEFAULT_MAX_UPLOAD_MB = 20;
 
+function sanitizeFileName(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 120);
+}
+
 function getMaxUploadBytes(): number {
   const envMaxUploadMb = Number(process.env.GOOGLE_DRIVE_MAX_UPLOAD_MB || DEFAULT_MAX_UPLOAD_MB);
   if (!Number.isFinite(envMaxUploadMb) || envMaxUploadMb <= 0) {
@@ -50,9 +56,12 @@ export async function POST(request: NextRequest) {
     const makePublic = typeof makePublicRaw === 'string' && ['true', '1', 'yes'].includes(makePublicRaw.toLowerCase());
     const previousFileIdRaw = formData.get('previousFileId');
     const previousFileId = typeof previousFileIdRaw === 'string' ? previousFileIdRaw.trim() : '';
+    const fileNameRaw = formData.get('fileName');
+    const fileName = typeof fileNameRaw === 'string' ? sanitizeFileName(fileNameRaw) : '';
 
     const uploaded = await uploadFileToGoogleDrive(filePart, {
       makePublic,
+      fileName: fileName || undefined,
     });
 
     let previousFileDeleted = false;

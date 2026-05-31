@@ -1,9 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import gsap from 'gsap';
 import { isAuthenticated, setLastPage } from '@/lib/services/auth';
-import { loadVaultCollections, saveVaultCollections, generateId, type VaultCollection } from '@/lib/services/vault';
+import type { PublicVaultCollection, VaultCategoryItem } from '@/types/content';
+import { createAdminVaultCollection, deleteAdminVaultCollection, fetchAdminVaultCollections, updateAdminVaultCollection } from '@/lib/services/admin-vault';
+import { createAdminVaultCategory, deleteAdminVaultCategory, fetchAdminVaultCategories, updateAdminVaultCategory } from '@/lib/services/admin-vault-categories';
+import { deleteAdminMediaByUrl, uploadAdminMedia } from '@/lib/services/admin-media';
 import { Button } from '@/components/ui/button';
 import { Select, type SelectOption } from '@/components/ui/select';
 import { PlusIcon, XIcon, EditIcon, ImageIcon, ExternalLinkIcon } from '@/components/shared/icons';
@@ -11,11 +16,9 @@ import AdminHeader from '@/components/admin/admin-header';
 import { DesktopSidebar, MobileSidebar } from '@/components/admin/admin-sidebar';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin/admin-page-layout';
 import { VaultLoadingSkeleton } from '@/components/admin/loading';
-
-const CATEGORY_OPTIONS: SelectOption[] = [
-  { value: 'Photography', label: 'Photography' },
-  { value: 'Videography', label: 'Videography' },
-];
+import { MediaDropzone } from '@/components/admin/gallery/media-dropzone';
+import { GallerySearchFilterBar, GallerySummaryGrid } from '@/components/admin/gallery/gallery-shared-ui';
+import { useToast } from '@/hooks/use-toast';
 
 const WIDTH_OPTIONS: SelectOption[] = [
   { value: '1', label: '1 Col' },
@@ -40,10 +43,12 @@ const ROW_LABELS: Record<number, string> = {
 };
 
 function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
+  const [matches, setMatches] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia(query).matches;
+  });
   useEffect(() => {
     const mq = window.matchMedia(query);
-    setMatches(mq.matches);
     const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
@@ -51,19 +56,201 @@ function useMediaQuery(query: string): boolean {
   return matches;
 }
 
+interface VaultLightboxMedia {
+  src: string;
+  type: 'image' | 'video';
+}
+
+interface VaultLightboxProps {
+  items: VaultLightboxMedia[];
+  index: number;
+  onClose: () => void;
+  onIndexChange: (i: number) => void;
+}
+
+function VaultLightbox({ items, index, onClose, onIndexChange }: VaultLightboxProps) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const mediaWrapRef = useRef<HTMLDivElement>(null);
+  const prevIndexRef = useRef(index);
+  const [outgoing, setOutgoing] = useState<VaultLightboxMedia | null>(null);
+  const [current, setCurrent] = useState(items[index]);
+
+  useEffect(() => {
+    if (index === prevIndexRef.current) return;
+    setOutgoing(current);
+    prevIndexRef.current = index;
+    setCurrent(items[index]);
+  }, [index, items, current]);
+
+  useEffect(() => {
+    if (!outgoing) return;
+    const timer = setTimeout(() => setOutgoing(null), 400);
+    return () => clearTimeout(timer);
+  }, [outgoing]);
+
+  useEffect(() => {
+    if (!overlayRef.current || !panelRef.current) return;
+    document.body.style.overflow = 'hidden';
+    const ctx = gsap.context(() => {
+      gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: 'power2.out' });
+      gsap.fromTo(panelRef.current, { scale: 0.92, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: 'power2.out' });
+    });
+    return () => { ctx.revert(); document.body.style.overflow = ''; };
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (!overlayRef.current || !panelRef.current) return;
+    gsap.to(overlayRef.current, { opacity: 0, duration: 0.2 });
+    gsap.to(panelRef.current, { scale: 0.92, opacity: 0, duration: 0.2, onComplete: onClose });
+  }, [onClose]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+      if (e.key === 'ArrowLeft') onIndexChange(index > 0 ? index - 1 : items.length - 1);
+      if (e.key === 'ArrowRight') onIndexChange(index < items.length - 1 ? index + 1 : 0);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [handleClose, index, items.length, onIndexChange]);
+
+  const handleFullscreen = () => {
+    const el = mediaWrapRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      el.requestFullscreen();
+    }
+  };
+
+  const showNav = items.length > 1;
+
+  return (
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      onClick={handleClose}
+    >
+      <div
+        ref={panelRef}
+        className="relative flex max-h-[80vh] max-w-2xl flex-col items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={handleClose}
+          className="absolute -right-3 -top-3 z-20 flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-sm text-[var(--text)] md:size-9"
+        >
+          &#x2715;
+        </button>
+
+        <div ref={mediaWrapRef} className="relative w-full">
+          {outgoing && (
+            <div className="absolute inset-0 z-10 animate-[fadeOut_0.4s_ease-out_forwards]">
+              {outgoing.type === 'video' ? (
+                <div className="aspect-video">
+                  <video src={outgoing.src} muted className="size-full rounded-lg object-cover" />
+                </div>
+              ) : (
+                <Image
+                  src={outgoing.src}
+                  alt=""
+                  width={1600}
+                  height={900}
+                  unoptimized
+                  className="max-h-[70vh] w-full rounded-lg object-contain"
+                />
+              )}
+            </div>
+          )}
+          <div key={`${current.src}-${index}`} className="animate-[fadeIn_0.4s_ease-out]">
+            {current.type === 'video' ? (
+              <div className="aspect-video">
+                <video
+                  src={current.src}
+                  controls
+                  muted
+                  className="size-full rounded-lg object-cover"
+                />
+              </div>
+            ) : (
+              <Image
+                src={current.src}
+                alt=""
+                width={1600}
+                height={900}
+                unoptimized
+                className="max-h-[70vh] w-full rounded-lg object-contain"
+              />
+            )}
+            {current.type === 'video' && (
+              <span className="absolute right-10 top-3 z-10 rounded bg-black/60 px-2 py-0.5 text-xs text-white/80">
+                Video
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={handleFullscreen}
+            className="absolute bottom-3 right-3 z-10 flex size-7 items-center justify-center rounded border border-[var(--border)] bg-black/60 text-[var(--text-muted)] transition-colors hover:text-white md:size-8"
+            title="Fullscreen"
+          >
+            <svg className="size-3.5 md:size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8V3m0 0h5M3 3l6 6m12 0V3m0 0h-5m5 0l-6 6M3 16v5m0 0h5m-5 0l6-6m12 5v-5m0 5h-5m5 0l-6-6" />
+            </svg>
+          </button>
+        </div>
+
+        {showNav && (
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={() => onIndexChange(index > 0 ? index - 1 : items.length - 1)}
+              className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] transition-colors hover:text-amber-200/80"
+            >
+              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="text-xs text-[var(--text-dim)]">{index + 1} / {items.length}</span>
+            <button
+              onClick={() => onIndexChange(index < items.length - 1 ? index + 1 : 0)}
+              className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] transition-colors hover:text-amber-200/80"
+            >
+              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface VaultRowProps {
-  item: VaultCollection;
+  item: PublicVaultCollection;
   index: number;
   total: number;
+  categoryOptions: SelectOption[];
+  disableReorder?: boolean;
   onMoveUp: (id: string) => void;
   onMoveDown: (id: string) => void;
-  onUpdate: (id: string, updates: Partial<VaultCollection>) => void;
-  onEdit: (item: VaultCollection) => void;
+  onUpdate: (id: string, updates: Partial<PublicVaultCollection>) => void;
+  onEdit: (item: PublicVaultCollection) => void;
+  onPreview: (item: PublicVaultCollection) => void;
   onDelete: (id: string) => void;
 }
 
-function VaultRow({ item, index, total, onMoveUp, onMoveDown, onUpdate, onEdit, onDelete }: VaultRowProps) {
+function VaultRow({ item, index, total, categoryOptions, disableReorder = false, onMoveUp, onMoveDown, onUpdate, onEdit, onPreview, onDelete }: VaultRowProps) {
   const isVideo = item.isVideo;
+  const hasMedia = item.media.length > 0 || (item.videos?.length ?? 0) > 0;
+  const moveUpDisabled = disableReorder || index === 0;
+  const moveDownDisabled = disableReorder || index === total - 1;
+  const effectiveCategoryOptions = useMemo(() => {
+    if (categoryOptions.some((option) => option.value === item.category)) return categoryOptions;
+    return [{ value: item.category, label: item.category }, ...categoryOptions];
+  }, [categoryOptions, item.category]);
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-start)] transition-colors hover:border-[var(--button-hover)]">
@@ -71,9 +258,9 @@ function VaultRow({ item, index, total, onMoveUp, onMoveDown, onUpdate, onEdit, 
         <div className="flex items-center gap-1.5 px-4 pt-4 md:px-0 md:pt-0">
           <button
             onClick={() => onMoveUp(item.id)}
-            disabled={index === 0}
+            disabled={moveUpDisabled}
             className="flex size-8 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-20"
-            title="Move up"
+            title={disableReorder ? 'Clear filters to reorder' : 'Move up'}
           >
             <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
@@ -81,9 +268,9 @@ function VaultRow({ item, index, total, onMoveUp, onMoveDown, onUpdate, onEdit, 
           </button>
           <button
             onClick={() => onMoveDown(item.id)}
-            disabled={index === total - 1}
+            disabled={moveDownDisabled}
             className="flex size-8 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-20"
-            title="Move down"
+            title={disableReorder ? 'Clear filters to reorder' : 'Move down'}
           >
             <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
@@ -93,7 +280,7 @@ function VaultRow({ item, index, total, onMoveUp, onMoveDown, onUpdate, onEdit, 
         </div>
 
         <div className="flex items-center gap-3 px-4 pt-3 md:px-0 md:pt-0">
-          <div className="size-11 shrink-0 overflow-hidden rounded-lg bg-[var(--button)] md:size-10">
+          <div className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-[var(--button)] md:size-10">
             {isVideo ? (
               <div className="flex size-full items-center justify-center text-[var(--text-dim)]">
                 <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -101,15 +288,28 @@ function VaultRow({ item, index, total, onMoveUp, onMoveDown, onUpdate, onEdit, 
                 </svg>
               </div>
             ) : (
-              <img src={item.thumb} alt="" className="size-full object-cover" loading="lazy" />
+              <Image
+                src={item.thumb}
+                alt=""
+                fill
+                unoptimized
+                sizes="44px"
+                className="object-cover"
+              />
             )}
           </div>
           <span className="truncate text-sm font-medium text-[var(--text)]">{item.title}</span>
         </div>
 
         <input
-          value={item.title}
-          onChange={(e) => onUpdate(item.id, { title: e.target.value })}
+          key={`${item.id}-${item.title}`}
+          defaultValue={item.title}
+          onBlur={(e) => {
+            const nextTitle = e.currentTarget.value.trim();
+            if (nextTitle && nextTitle !== item.title) {
+              onUpdate(item.id, { title: nextTitle });
+            }
+          }}
           className="mx-4 mt-3 hidden min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-1.5 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30 md:mx-0 md:mt-0 md:block"
           placeholder="Collection title"
         />
@@ -117,8 +317,8 @@ function VaultRow({ item, index, total, onMoveUp, onMoveDown, onUpdate, onEdit, 
         <div className="mx-4 mt-3 hidden md:mx-0 md:mt-0 md:block">
           <Select
             value={item.category}
-            options={CATEGORY_OPTIONS}
-            onChange={(val) => onUpdate(item.id, { category: val as 'Photography' | 'Videography' })}
+            options={effectiveCategoryOptions}
+            onChange={(val) => onUpdate(item.id, { category: val })}
             className="w-32"
           />
         </div>
@@ -139,6 +339,16 @@ function VaultRow({ item, index, total, onMoveUp, onMoveDown, onUpdate, onEdit, 
         </div>
 
         <div className="mx-4 mt-3 hidden md:mx-0 md:mt-0 md:flex md:items-center md:gap-1">
+          <button
+            onClick={() => onPreview(item)}
+            disabled={!hasMedia}
+            className="flex size-8 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-50"
+            title="Preview collection"
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </button>
           <button
             onClick={() => onEdit(item)}
             className="flex size-8 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
@@ -168,6 +378,16 @@ function VaultRow({ item, index, total, onMoveUp, onMoveDown, onUpdate, onEdit, 
         </div>
         <div className="flex gap-3">
           <button
+            onClick={() => onPreview(item)}
+            disabled={!hasMedia}
+            className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--button)] px-4 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-50"
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Preview
+          </button>
+          <button
             onClick={() => onEdit(item)}
             className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--button)] px-4 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
           >
@@ -187,7 +407,7 @@ function VaultRow({ item, index, total, onMoveUp, onMoveDown, onUpdate, onEdit, 
   );
 }
 
-const EMPTY_FORM: VaultCollection = {
+const EMPTY_FORM: PublicVaultCollection = {
   id: '',
   title: '',
   category: 'Photography',
@@ -202,27 +422,218 @@ const EMPTY_FORM: VaultCollection = {
 
 interface EditDialogProps {
   open: boolean;
-  item: VaultCollection;
-  onSave: (item: VaultCollection) => void;
+  item: PublicVaultCollection;
+  categoryOptions: SelectOption[];
+  saving: boolean;
+  uploadProgress: number;
+  uploadStage: 'idle' | 'uploading' | 'finalizing';
+  onSave: (payload: {
+    item: PublicVaultCollection;
+    original: PublicVaultCollection;
+    pendingMedia: Array<{ id: string; file: File; previewUrl: string; type: 'image' | 'video' }>;
+  }) => void;
   onClose: () => void;
 }
 
-function EditDialog({ open, item, onSave, onClose }: EditDialogProps) {
-  const [form, setForm] = useState<VaultCollection>(item);
+function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploadStage, onSave, onClose }: EditDialogProps) {
+  const [form, setForm] = useState<PublicVaultCollection>(item);
+  const [pendingMedia, setPendingMedia] = useState<Array<{ id: string; file: File; previewUrl: string; type: 'image' | 'video' }>>([]);
+  const [animatedUploadProgress, setAnimatedUploadProgress] = useState(0);
+  const pendingMediaRef = useRef<Array<{ id: string; file: File; previewUrl: string; type: 'image' | 'video' }>>([]);
+  const wasSavingRef = useRef(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const effectiveCategoryOptions = useMemo(() => {
+    if (categoryOptions.some((option) => option.value === form.category)) return categoryOptions;
+    return [{ value: form.category, label: form.category }, ...categoryOptions];
+  }, [categoryOptions, form.category]);
+
+  const combinedMedia = useMemo(
+    () => [
+      ...form.media.map((src, index) => ({ src, type: 'image' as const, sourceIndex: index, source: 'existing' as const })),
+      ...(form.videos ?? []).map((src, index) => ({ src, type: 'video' as const, sourceIndex: index, source: 'existing' as const })),
+      ...pendingMedia.map((media) => ({ src: media.previewUrl, type: media.type, source: 'pending' as const, pendingId: media.id })),
+    ],
+    [form.media, form.videos, pendingMedia],
+  );
 
   useEffect(() => {
-    setForm(item);
-  }, [item]);
+    pendingMediaRef.current = pendingMedia;
+  }, [pendingMedia]);
+
+  useEffect(() => {
+    return () => {
+      for (const media of pendingMediaRef.current) {
+        URL.revokeObjectURL(media.previewUrl);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!saving || uploadStage === 'idle') return;
+
+    const timer = window.setInterval(() => {
+      setAnimatedUploadProgress((prev) => {
+        const delta = uploadProgress - prev;
+        if (Math.abs(delta) < 0.6) return uploadProgress;
+        return prev + delta * 0.22;
+      });
+    }, 24);
+
+    return () => window.clearInterval(timer);
+  }, [saving, uploadProgress, uploadStage]);
+
+  useEffect(() => {
+    if (saving && !wasSavingRef.current) {
+      const rafId = window.requestAnimationFrame(() => {
+        setAnimatedUploadProgress(0);
+      });
+      wasSavingRef.current = true;
+      return () => window.cancelAnimationFrame(rafId);
+    }
+
+    if (!saving) {
+      wasSavingRef.current = false;
+    }
+  }, [saving]);
 
   const handleSave = () => {
+    if (saving) return;
+
     if (!form.title.trim()) return;
-    onSave({ ...form, title: form.title.trim() });
+
+    const hasImages = form.media.length > 0 || pendingMedia.some((media) => media.type === 'image');
+    const hasVideos = (form.videos?.length ?? 0) > 0 || pendingMedia.some((media) => media.type === 'video');
+
+    if (!hasImages && !hasVideos) {
+      toast.error('Upload at least one image or video for this collection');
+      return;
+    }
+
+    onSave({
+      item: {
+        ...form,
+        title: form.title.trim(),
+        // Auto-derive type to avoid a separate checkbox flow.
+        isVideo: !hasImages && hasVideos,
+      },
+      original: item,
+      pendingMedia,
+    });
   };
 
-  const handleMediaChange = (val: string) => {
-    const urls = val.split('\n').map((s) => s.trim()).filter(Boolean);
-    setForm((prev) => ({ ...prev, media: urls }));
+  const queueFiles = useCallback((files: File[], type: 'image' | 'video') => {
+    if (files.length === 0) return;
+
+    setPendingMedia((prev) => [
+      ...prev,
+      ...files.map((file) => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        type,
+      })),
+    ]);
+    toast.success(`${files.length} ${type}${files.length > 1 ? 's' : ''} ready. They will upload on Save.`);
+  }, [toast]);
+
+  const handleMediaUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    queueFiles(files, 'image');
   };
+
+  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    queueFiles(files, 'video');
+  };
+
+  const handleDropImages = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const droppedFiles = Array.from(event.dataTransfer.files || []);
+    const files = droppedFiles.filter((file) => file.type.startsWith('image/'));
+    const invalidCount = droppedFiles.length - files.length;
+    if (invalidCount > 0) {
+      toast.error(`Invalid file type: ${invalidCount} file${invalidCount > 1 ? 's' : ''} must be image format.`);
+    }
+    queueFiles(files, 'image');
+  };
+
+  const handleDropVideos = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const droppedFiles = Array.from(event.dataTransfer.files || []);
+    const files = droppedFiles.filter((file) => file.type.startsWith('video/'));
+    const invalidCount = droppedFiles.length - files.length;
+    if (invalidCount > 0) {
+      toast.error(`Invalid file type: ${invalidCount} file${invalidCount > 1 ? 's' : ''} must be video format.`);
+    }
+    queueFiles(files, 'video');
+  };
+
+  const openImagePicker = useCallback(() => {
+    imageInputRef.current?.click();
+  }, []);
+
+  const openVideoPicker = useCallback(() => {
+    videoInputRef.current?.click();
+  }, []);
+
+  const moveArrayItem = useCallback(<T,>(arr: T[], fromIndex: number, toIndex: number): T[] => {
+    if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= arr.length || toIndex < 0 || toIndex >= arr.length) {
+      return arr;
+    }
+    const next = [...arr];
+    const [itemToMove] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, itemToMove);
+    return next;
+  }, []);
+
+  const moveMediaItem = useCallback((media: (typeof combinedMedia)[number], direction: 'up' | 'down') => {
+    if (media.source === 'pending') {
+      setPendingMedia((prev) => {
+        const fromIndex = prev.findIndex((entry) => entry.id === media.pendingId);
+        if (fromIndex === -1) return prev;
+        const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+        return moveArrayItem(prev, fromIndex, toIndex);
+      });
+      return;
+    }
+
+    if (media.type === 'video') {
+      setForm((prev) => ({
+        ...prev,
+        videos: moveArrayItem(prev.videos ?? [], media.sourceIndex, direction === 'up' ? media.sourceIndex - 1 : media.sourceIndex + 1),
+      }));
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      media: moveArrayItem(prev.media, media.sourceIndex, direction === 'up' ? media.sourceIndex - 1 : media.sourceIndex + 1),
+    }));
+  }, [moveArrayItem]);
+
+  const canMoveUp = useCallback((media: (typeof combinedMedia)[number]) => {
+    if (media.source === 'pending') {
+      const idx = pendingMedia.findIndex((entry) => entry.id === media.pendingId);
+      return idx > 0;
+    }
+    return media.sourceIndex > 0;
+  }, [pendingMedia]);
+
+  const canMoveDown = useCallback((media: (typeof combinedMedia)[number]) => {
+    if (media.source === 'pending') {
+      const idx = pendingMedia.findIndex((entry) => entry.id === media.pendingId);
+      return idx !== -1 && idx < pendingMedia.length - 1;
+    }
+    if (media.type === 'video') {
+      const total = form.videos?.length ?? 0;
+      return media.sourceIndex < total - 1;
+    }
+    return media.sourceIndex < form.media.length - 1;
+  }, [form.media.length, form.videos, pendingMedia]);
 
   if (!open) return null;
 
@@ -232,22 +643,39 @@ function EditDialog({ open, item, onSave, onClose }: EditDialogProps) {
       onClick={onClose}
     >
       <div
-        className="w-full rounded-t-xl border border-[var(--border)] bg-[var(--bg-mid)] p-5 shadow-2xl sm:mx-4 sm:max-w-lg sm:rounded-xl"
+        className="flex max-h-[92vh] w-full flex-col rounded-t-xl border border-[var(--border)] bg-[var(--bg-mid)] shadow-2xl sm:mx-4 sm:max-w-2xl sm:rounded-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-4 sm:px-5">
           <h3 className="text-sm font-semibold text-[var(--text)]">
             {item.id ? 'Edit Collection' : 'New Collection'}
           </h3>
           <button
             onClick={onClose}
-            className="flex size-7 items-center justify-center rounded-md text-[var(--text-dim)] hover:bg-[var(--button-hover)]"
+            className="flex size-10 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] sm:size-8"
           >
             <XIcon />
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleMediaUpload}
+          />
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/*"
+            multiple
+            className="hidden"
+            onChange={handleVideoUpload}
+          />
+
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--text-dim)]">Title</label>
             <input
@@ -263,8 +691,8 @@ function EditDialog({ open, item, onSave, onClose }: EditDialogProps) {
               <label className="mb-1 block text-xs font-medium text-[var(--text-dim)]">Category</label>
               <Select
                 value={form.category}
-                options={CATEGORY_OPTIONS}
-                onChange={(val) => setForm((prev) => ({ ...prev, category: val as 'Photography' | 'Videography' }))}
+                options={effectiveCategoryOptions}
+                onChange={(val) => setForm((prev) => ({ ...prev, category: val }))}
               />
             </div>
             <div className="flex-1">
@@ -284,96 +712,161 @@ function EditDialog({ open, item, onSave, onClose }: EditDialogProps) {
               />
             </div>
           </div>
-
           <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--text-dim)]">Thumbnail URL</label>
-            <input
-              value={form.thumb}
-              onChange={(e) => setForm((prev) => ({ ...prev, thumb: e.target.value }))}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30"
-              placeholder="https://images.unsplash.com/..."
+            <div className="mb-2 flex items-center justify-between">
+              <label className="text-xs font-medium text-[var(--text-dim)]">Media</label>
+              <span className="text-[10px] text-[var(--text-dim)]">{combinedMedia.length} item{combinedMedia.length !== 1 ? 's' : ''}</span>
+            </div>
+
+            <div className="mb-2 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+              <button
+                type="button"
+                onClick={openImagePicker}
+                disabled={saving}
+                className="min-h-9 rounded-md border border-[var(--border)] bg-[var(--button)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
+              >
+                Upload Images
+              </button>
+              <button
+                type="button"
+                onClick={openVideoPicker}
+                disabled={saving}
+                className="min-h-9 rounded-md border border-[var(--border)] bg-[var(--button)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
+              >
+                Upload Videos
+              </button>
+            </div>
+
+            {saving && uploadStage !== 'idle' && (
+              <div className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--bg-start)] px-3 py-2">
+                <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] text-[var(--text-dim)]">
+                  <span className="inline-flex items-center gap-1.5">
+                    <svg className="size-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 12a8 8 0 018-8m0 0a8 8 0 018 8m-8-8v8" />
+                    </svg>
+                    {uploadStage === 'uploading' ? 'Uploading media to Drive...' : 'Finalizing collection...'}
+                  </span>
+                  <span>{Math.round(animatedUploadProgress)}%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--button)]">
+                  <div
+                    className="h-full rounded-full bg-amber-500/80 transition-all duration-300"
+                    style={{ width: `${Math.max(5, animatedUploadProgress)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <MediaDropzone
+              title="Drop image files here"
+              hint="Drag files here or click to upload from your device"
+              icon="image"
+              onDrop={handleDropImages}
+              onClick={openImagePicker}
+              className="mb-2"
             />
-          </div>
 
-          <div className="flex items-center gap-2">
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.isVideo}
-                onChange={(e) => setForm((prev) => ({ ...prev, isVideo: e.target.checked }))}
-                className="size-4 accent-amber-700"
-              />
-              <span className="text-xs font-medium text-[var(--text-dim)]">Video collection</span>
-            </label>
-          </div>
+            <MediaDropzone
+              title="Drop video files here"
+              hint="Drag files here or click to upload from your device"
+              icon="video"
+              onDrop={handleDropVideos}
+              onClick={openVideoPicker}
+              className="mb-2"
+            />
 
-          {form.isVideo && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-[var(--text-dim)]">
-                Videos ({form.videos?.length ?? 0})
-              </label>
-              <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--button)] p-2">
-                {(form.videos ?? []).map((url, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      value={url}
-                      onChange={(e) => {
-                        const next = [...(form.videos ?? [])];
-                        next[i] = e.target.value;
-                        setForm((prev) => ({ ...prev, videos: next }));
-                      }}
-                      className="min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--bg-start)] px-2.5 py-1.5 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30"
-                      placeholder="/video.mp4"
-                    />
+            <div className="max-h-52 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--button)] p-2 sm:max-h-56">
+              {combinedMedia.length === 0 ? (
+                <p className="py-6 text-center text-xs text-[var(--text-dim)]">No media yet. Upload from your device.</p>
+              ) : (
+                combinedMedia.map((media, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-mid)] p-2 transition-colors hover:border-amber-700/30">
+                    <div className="relative size-9 shrink-0 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--button)]">
+                      {media.type === 'video' ? (
+                        <>
+                          <video src={media.src} muted className="size-full object-cover" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                            <svg className="size-4 text-white/80" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </div>
+                        </>
+                      ) : (
+                        <Image src={media.src} alt="Gallery image preview" fill unoptimized className="object-cover" />
+                      )}
+                    </div>
+                    <p className="min-w-0 flex-1 truncate text-xs text-[var(--text-dim)]">{media.src.split('/').pop() || 'media file'}</p>
                     <button
+                      type="button"
                       onClick={() => {
-                        const next = (form.videos ?? []).filter((_, j) => j !== i);
-                        setForm((prev) => ({ ...prev, videos: next }));
+                        if (media.source === 'pending') {
+                          setPendingMedia((prev) => {
+                            const target = prev.find((entry) => entry.id === media.pendingId);
+                            if (target) {
+                              window.setTimeout(() => URL.revokeObjectURL(target.previewUrl), 0);
+                            }
+                            return prev.filter((entry) => entry.id !== media.pendingId);
+                          });
+                        } else if (media.type === 'video') {
+                          setForm((prev) => ({
+                            ...prev,
+                            videos: (prev.videos ?? []).filter((_, index) => index !== media.sourceIndex),
+                          }));
+                        } else {
+                          setForm((prev) => ({
+                            ...prev,
+                            media: prev.media.filter((_, index) => index !== media.sourceIndex),
+                          }));
+                        }
                       }}
-                      className="flex shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--button)] px-2 text-[var(--text-dim)] transition-colors hover:bg-red-900/40 hover:text-red-300"
-                      title="Remove video"
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-red-900/40 hover:text-red-300"
+                      title="Remove"
                     >
                       <XIcon className="size-3.5" />
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => moveMediaItem(media, 'up')}
+                      disabled={!canMoveUp(media)}
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-40"
+                      title="Move up"
+                    >
+                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveMediaItem(media, 'down')}
+                      disabled={!canMoveDown(media)}
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-40"
+                      title="Move down"
+                    >
+                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </button>
                   </div>
-                ))}
-                <button
-                  onClick={() => setForm((prev) => ({ ...prev, videos: [...(prev.videos ?? []), ''] }))}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-[var(--border)] bg-transparent px-3 py-2 text-xs font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--button-hover)] hover:text-[var(--text)]"
-                >
-                  <PlusIcon className="size-3.5" />
-                  Add Video
-                </button>
-              </div>
+                ))
+              )}
             </div>
-          )}
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--text-dim)]">
-              Media URLs (one per line)
-            </label>
-            <textarea
-              value={form.media.join('\n')}
-              onChange={(e) => handleMediaChange(e.target.value)}
-              rows={3}
-              className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30"
-              placeholder="https://images.unsplash.com/..."
-            />
           </div>
         </div>
 
-        <div className="mt-5 flex gap-2">
+        <div className="flex flex-col-reverse gap-2 border-t border-[var(--border)] px-4 py-4 sm:flex-row sm:px-5">
           <button
             onClick={onClose}
-            className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--button-hover)]"
+            disabled={saving}
+            className="min-h-10 flex-1 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--button-hover)] disabled:opacity-60"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 rounded-lg bg-[var(--text)] px-3 py-2 text-sm font-medium text-[var(--bg-end)] transition-colors hover:opacity-90"
+            disabled={saving}
+            className="min-h-10 flex-1 rounded-lg bg-[var(--text)] px-3 py-2 text-sm font-medium text-[var(--bg-end)] transition-colors hover:opacity-90 disabled:opacity-60"
           >
-            Save
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>
@@ -386,24 +879,113 @@ export default function PersonalVaultPage() {
   const isMobile = useMediaQuery('(max-width: 1023px)');
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [collections, setCollections] = useState<VaultCollection[]>([]);
+  const [collections, setCollections] = useState<PublicVaultCollection[]>([]);
+  const [categories, setCategories] = useState<VaultCategoryItem[]>([]);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [editItem, setEditItem] = useState<VaultCollection | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [lightbox, setLightbox] = useState<{ items: VaultLightboxMedia[]; index: number } | null>(null);
+  const [editItem, setEditItem] = useState<PublicVaultCollection | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [saveUploadProgress, setSaveUploadProgress] = useState(0);
+  const [saveUploadStage, setSaveUploadStage] = useState<'idle' | 'uploading' | 'finalizing'>('idle');
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const { toast } = useToast();
+
+  const createProfessionalFileName = useCallback((collectionTitle: string, type: 'image' | 'video', file: File) => {
+    const extFromName = file.name.includes('.') ? file.name.split('.').pop() || '' : '';
+    const extFromType = file.type.includes('/') ? file.type.split('/')[1] : '';
+    const ext = (extFromName || extFromType || (type === 'video' ? 'mp4' : 'jpg')).toLowerCase();
+    const slug = collectionTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'collection';
+    const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
+    const random = Math.random().toString(36).slice(2, 7);
+    return `vault-${slug}-${type}-${stamp}-${random}.${ext}`;
+  }, []);
+
+  const categoryOptions = useMemo<SelectOption[]>(
+    () => categories.filter((item) => item.isActive).map((item) => ({ value: item.name, label: item.name })),
+    [categories],
+  );
+
+  const vaultFilterOptions = useMemo(
+    () => [{ id: 'all', label: 'All' }, ...categoryOptions.map((item) => ({ id: item.value, label: item.label }))],
+    [categoryOptions],
+  );
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      setLastPage('/admin/gallery/vault');
-      router.push('/admin/login');
-      return;
-    }
-    setCollections(loadVaultCollections());
-    setIsBootstrapping(false);
-  }, [router]);
+    let active = true;
+
+    const init = async () => {
+      if (!isAuthenticated()) {
+        setLastPage('/admin/gallery/vault');
+        router.push('/admin/login');
+        return;
+      }
+
+      try {
+        const [rows, categoryRows] = await Promise.all([
+          fetchAdminVaultCollections(),
+          fetchAdminVaultCategories(),
+        ]);
+        if (!active) return;
+        setCollections(rows);
+        setCategories(categoryRows);
+      } catch (error) {
+        if (!active) return;
+        toast.error(error instanceof Error ? error.message : 'Failed to load vault data');
+      } finally {
+        if (active) setIsBootstrapping(false);
+      }
+    };
+
+    void init();
+    return () => {
+      active = false;
+    };
+  }, [router, toast]);
 
   const sortedCollections = useMemo(
     () => [...collections].sort((a, b) => a.order - b.order),
     [collections],
   );
+
+  const vaultStats = useMemo(() => {
+    const categoriesCount = new Set(collections.map((item) => item.category)).size;
+    const totalAssets = collections.reduce((acc, item) => {
+      const imageCount = item.media.length;
+      const videoCount = item.videos?.length ?? 0;
+      return acc + imageCount + videoCount;
+    }, 0);
+    return {
+      total: collections.length,
+      categoriesCount,
+      totalAssets,
+    };
+  }, [collections]);
+
+  const effectiveCategoryFilter = useMemo(() => {
+    if (categoryFilter === 'all') return 'all';
+    return categoryOptions.some((option) => option.value === categoryFilter) ? categoryFilter : 'all';
+  }, [categoryFilter, categoryOptions]);
+
+  const filteredCollections = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return sortedCollections.filter((item) => {
+      if (effectiveCategoryFilter !== 'all' && item.category !== effectiveCategoryFilter) return false;
+      if (!query) return true;
+      return (
+        item.title.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query)
+      );
+    });
+  }, [sortedCollections, searchQuery, effectiveCategoryFilter]);
+
+  const hasActiveFilter = effectiveCategoryFilter !== 'all' || searchQuery.trim().length > 0;
 
   const handleToggleSidebar = useCallback(() => {
     if (isMobile) {
@@ -417,73 +999,233 @@ export default function PersonalVaultPage() {
     }
   }, [isMobile]);
 
-  const handleMoveUp = useCallback((id: string) => {
-    setCollections((prev) => {
-      const sorted = [...prev].sort((a, b) => a.order - b.order);
-      const idx = sorted.findIndex((c) => c.id === id);
-      if (idx <= 0) return prev;
-      [sorted[idx - 1], sorted[idx]] = [sorted[idx], sorted[idx - 1]];
-      const next = sorted.map((c, i) => ({ ...c, order: i }));
-      saveVaultCollections(next);
-      return next;
-    });
-  }, []);
+  const handleMoveUp = useCallback(async (id: string) => {
+    const sorted = [...collections].sort((a, b) => a.order - b.order);
+    const idx = sorted.findIndex((c) => c.id === id);
+    if (idx <= 0) return;
 
-  const handleMoveDown = useCallback((id: string) => {
-    setCollections((prev) => {
-      const sorted = [...prev].sort((a, b) => a.order - b.order);
-      const idx = sorted.findIndex((c) => c.id === id);
-      if (idx === -1 || idx >= sorted.length - 1) return prev;
-      [sorted[idx], sorted[idx + 1]] = [sorted[idx + 1], sorted[idx]];
-      const next = sorted.map((c, i) => ({ ...c, order: i }));
-      saveVaultCollections(next);
-      return next;
-    });
-  }, []);
+    [sorted[idx - 1], sorted[idx]] = [sorted[idx], sorted[idx - 1]];
+    const next = sorted.map((c, i) => ({ ...c, order: i }));
+    setCollections(next);
 
-  const handleUpdate = useCallback((id: string, updates: Partial<VaultCollection>) => {
-    setCollections((prev) => {
-      const next = prev.map((c) => (c.id === id ? { ...c, ...updates } : c));
-      saveVaultCollections(next);
-      return next;
-    });
-  }, []);
+    try {
+      await Promise.all([
+        updateAdminVaultCollection(next[idx - 1].id, { order: next[idx - 1].order }),
+        updateAdminVaultCollection(next[idx].id, { order: next[idx].order }),
+      ]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to reorder collection');
+      setCollections(collections);
+    }
+  }, [collections, toast]);
 
-  const handleEdit = useCallback((item: VaultCollection) => {
+  const handleMoveDown = useCallback(async (id: string) => {
+    const sorted = [...collections].sort((a, b) => a.order - b.order);
+    const idx = sorted.findIndex((c) => c.id === id);
+    if (idx === -1 || idx >= sorted.length - 1) return;
+
+    [sorted[idx], sorted[idx + 1]] = [sorted[idx + 1], sorted[idx]];
+    const next = sorted.map((c, i) => ({ ...c, order: i }));
+    setCollections(next);
+
+    try {
+      await Promise.all([
+        updateAdminVaultCollection(next[idx].id, { order: next[idx].order }),
+        updateAdminVaultCollection(next[idx + 1].id, { order: next[idx + 1].order }),
+      ]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to reorder collection');
+      setCollections(collections);
+    }
+  }, [collections, toast]);
+
+  const handleUpdate = useCallback(async (id: string, updates: Partial<PublicVaultCollection>) => {
+    setCollections((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+    try {
+      const updated = await updateAdminVaultCollection(id, updates);
+      setCollections((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update collection');
+      const rows = await fetchAdminVaultCollections();
+      setCollections(rows);
+    }
+  }, [toast]);
+
+  const handleEdit = useCallback((item: PublicVaultCollection) => {
     setEditItem(item);
   }, []);
 
-  const handleSaveEdit = useCallback((updated: VaultCollection) => {
-    setCollections((prev) => {
-      const next = prev.map((c) => (c.id === updated.id ? updated : c));
-      saveVaultCollections(next);
-      return next;
-    });
-    setEditItem(null);
+  const handlePreview = useCallback((item: PublicVaultCollection) => {
+    const items: VaultLightboxMedia[] = [
+      ...item.media.map((src) => ({ src, type: 'image' as const })),
+      ...(item.videos ?? []).map((src) => ({ src, type: 'video' as const })),
+    ];
+
+    if (items.length > 0) {
+      setLightbox({ items, index: 0 });
+    }
   }, []);
 
-  const handleDelete = useCallback((id: string) => {
-    setCollections((prev) => {
-      const filtered = prev.filter((c) => c.id !== id);
-      const next = filtered.map((c, i) => ({ ...c, order: i }));
-      saveVaultCollections(next);
-      return next;
-    });
-  }, []);
+  const handleSaveEdit = useCallback(async (payload: { item: PublicVaultCollection; original: PublicVaultCollection; pendingMedia: Array<{ id: string; file: File; previewUrl: string; type: 'image' | 'video' }> }) => {
+    const { item: updated, original, pendingMedia } = payload;
+    if (isSavingEdit) return;
+    setIsSavingEdit(true);
+    setSaveUploadProgress(5);
+
+    const uploadedUrls: string[] = [];
+
+    try {
+      if (pendingMedia.length > 0) {
+        setSaveUploadStage('uploading');
+      }
+
+      const uploaded: Array<{ type: 'image' | 'video'; url: string }> = [];
+      for (let index = 0; index < pendingMedia.length; index += 1) {
+        const media = pendingMedia[index];
+        const url = await uploadAdminMedia(media.file, {
+          fileName: createProfessionalFileName(updated.title, media.type, media.file),
+        });
+        uploadedUrls.push(url);
+        uploaded.push({ type: media.type, url });
+        const progress = 10 + Math.round(((index + 1) / Math.max(1, pendingMedia.length)) * 70);
+        setSaveUploadProgress(progress);
+      }
+
+      setSaveUploadStage('finalizing');
+      setSaveUploadProgress(90);
+
+      const nextImages = [...updated.media, ...uploaded.filter((item) => item.type === 'image').map((item) => item.url)];
+      const nextVideos = [...(updated.videos ?? []), ...uploaded.filter((item) => item.type === 'video').map((item) => item.url)];
+      const normalizedPayload: PublicVaultCollection = {
+        ...updated,
+        media: nextImages,
+        videos: nextVideos,
+        isVideo: nextImages.length === 0 && nextVideos.length > 0,
+      };
+
+      if (!updated.id) {
+        const created = await createAdminVaultCollection({
+          ...normalizedPayload,
+          order: collections.length,
+        });
+        setSaveUploadProgress(100);
+        setCollections((prev) => [...prev, created]);
+        setEditItem(null);
+        toast.success('Collection created');
+        return;
+      }
+
+      const saved = await updateAdminVaultCollection(updated.id, normalizedPayload);
+      setSaveUploadProgress(100);
+      setCollections((prev) => prev.map((c) => (c.id === saved.id ? saved : c)));
+
+      const originalUrls = [...original.media, ...(original.videos ?? [])];
+      const savedUrls = new Set([...saved.media, ...(saved.videos ?? [])]);
+      const removedUrls = originalUrls.filter((url) => !savedUrls.has(url));
+      if (removedUrls.length > 0) {
+        await Promise.allSettled(removedUrls.map((url) => deleteAdminMediaByUrl(url)));
+      }
+
+      setEditItem(null);
+      toast.success('Collection updated');
+    } catch (error) {
+      if (uploadedUrls.length > 0) {
+        await Promise.allSettled(uploadedUrls.map((url) => deleteAdminMediaByUrl(url)));
+      }
+      toast.error(error instanceof Error ? error.message : 'Failed to save collection');
+    } finally {
+      setIsSavingEdit(false);
+      setSaveUploadProgress(0);
+      setSaveUploadStage('idle');
+    }
+  }, [collections.length, createProfessionalFileName, isSavingEdit, toast]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    const prev = collections;
+    const filtered = prev.filter((c) => c.id !== id).map((c, i) => ({ ...c, order: i }));
+    setCollections(filtered);
+    setDeleteConfirm(null);
+
+    try {
+      await deleteAdminVaultCollection(id);
+      toast.success('Collection deleted');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete collection');
+      setCollections(prev);
+    }
+  }, [collections, toast]);
 
   const handleAddNew = useCallback(() => {
-    const newItem: VaultCollection = {
+    const defaultCategory = categoryOptions[0]?.value || '';
+
+    if (!defaultCategory) {
+      toast.error('Create at least one category before adding collection');
+      return;
+    }
+
+    setEditItem({
       ...EMPTY_FORM,
-      id: generateId(),
+      id: '',
+      category: defaultCategory,
       order: collections.length,
-    };
-    setCollections((prev) => {
-      const next = [...prev, newItem];
-      saveVaultCollections(next);
-      return next;
     });
-    setEditItem(newItem);
-  }, [collections.length]);
+  }, [categoryOptions, collections.length, toast]);
+
+  const handleCreateCategory = useCallback(async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+
+    setIsSavingCategory(true);
+    try {
+      const created = await createAdminVaultCategory(name);
+      setCategories((prev) => [...prev, created].sort((a, b) => a.sortOrder - b.sortOrder));
+      setNewCategoryName('');
+      toast.success('Category added');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create category');
+    } finally {
+      setIsSavingCategory(false);
+    }
+  }, [newCategoryName, toast]);
+
+  const handleStartEditCategory = useCallback((category: VaultCategoryItem) => {
+    setEditingCategoryId(category.id);
+    setEditingCategoryName(category.name);
+  }, []);
+
+  const handleSaveCategoryEdit = useCallback(async () => {
+    if (!editingCategoryId) return;
+    const nextName = editingCategoryName.trim();
+    if (!nextName) return;
+
+    setIsSavingCategory(true);
+    try {
+      const previousName = categories.find((item) => item.id === editingCategoryId)?.name ?? editingCategoryName;
+      const updated = await updateAdminVaultCategory(editingCategoryId, nextName);
+      setCategories((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      setCollections((prev) => prev.map((item) => (item.category === previousName ? { ...item, category: updated.name } : item)));
+      setEditingCategoryId(null);
+      setEditingCategoryName('');
+      toast.success('Category updated');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update category');
+    } finally {
+      setIsSavingCategory(false);
+    }
+  }, [categories, editingCategoryId, editingCategoryName, toast]);
+
+  const handleDeleteCategory = useCallback(async (category: VaultCategoryItem) => {
+    setIsSavingCategory(true);
+    try {
+      await deleteAdminVaultCategory(category.id);
+      setCategories((prev) => prev.filter((item) => item.id !== category.id));
+      toast.success('Category deleted');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete category');
+    } finally {
+      setIsSavingCategory(false);
+    }
+  }, [toast]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -509,15 +1251,25 @@ export default function PersonalVaultPage() {
               title="Personal Vault"
               description="Reorder your vault collections. The order here controls the landing page display."
               actions={
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleAddNew}
-                  className="flex items-center gap-1.5 border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
-                >
-                  <PlusIcon />
-                  <span>Add</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setCategoryManagerOpen(true)}
+                    className="border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
+                  >
+                    Manage Categories
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleAddNew}
+                    className="flex items-center gap-1.5 border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
+                  >
+                    <PlusIcon />
+                    <span>Add</span>
+                  </Button>
+                </div>
               }
             />
 
@@ -547,6 +1299,24 @@ export default function PersonalVaultPage() {
                   </button>
                 </div>
 
+                <GallerySummaryGrid
+                  items={[
+                    { label: 'Total Collections', value: vaultStats.total },
+                    { label: 'Active Categories', value: vaultStats.categoriesCount },
+                    { label: 'Media Assets', value: vaultStats.totalAssets },
+                  ]}
+                />
+
+                <GallerySearchFilterBar
+                  query={searchQuery}
+                  onQueryChange={setSearchQuery}
+                  queryPlaceholder="Search by title or category"
+                  filterOptions={vaultFilterOptions}
+                  activeFilter={effectiveCategoryFilter}
+                  onFilterChange={setCategoryFilter}
+                  helperText={hasActiveFilter ? 'Reordering is temporarily disabled while filters are active.' : undefined}
+                />
+
                 {collections.length === 0 ? (
                   <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-start)] px-6 py-16 text-center">
                     <ImageIcon className="size-10 text-[var(--text-dim)]" />
@@ -564,19 +1334,27 @@ export default function PersonalVaultPage() {
                       <span>Add Collection</span>
                     </Button>
                   </div>
+                ) : filteredCollections.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-start)] px-6 py-12 text-center">
+                    <p className="text-sm font-medium text-[var(--text)]">No matching collection found</p>
+                    <p className="mt-1 text-xs text-[var(--text-dim)]">Try adjusting search or category filter.</p>
+                  </div>
                 ) : (
                   <div className="space-y-2">
-                    {sortedCollections.map((item, index) => (
+                    {filteredCollections.map((item, index) => (
                       <VaultRow
                         key={item.id}
                         item={item}
                         index={index}
-                        total={sortedCollections.length}
+                        total={filteredCollections.length}
+                        categoryOptions={categoryOptions}
+                        disableReorder={hasActiveFilter}
                         onMoveUp={handleMoveUp}
                         onMoveDown={handleMoveDown}
                         onUpdate={handleUpdate}
                         onEdit={handleEdit}
-                        onDelete={handleDelete}
+                        onPreview={handlePreview}
+                        onDelete={setDeleteConfirm}
                       />
                     ))}
                   </div>
@@ -589,11 +1367,154 @@ export default function PersonalVaultPage() {
 
       {editItem && (
         <EditDialog
+          key={editItem.id || 'new-collection'}
           open
           item={editItem}
+          categoryOptions={categoryOptions}
+          saving={isSavingEdit}
+          uploadProgress={saveUploadProgress}
+          uploadStage={saveUploadStage}
           onSave={handleSaveEdit}
-          onClose={() => setEditItem(null)}
+          onClose={() => {
+            if (!isSavingEdit) setEditItem(null);
+          }}
         />
+      )}
+
+      {lightbox && (
+        <VaultLightbox
+          items={lightbox.items}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onIndexChange={(i) => setLightbox((prev) => (prev ? { ...prev, index: i } : null))}
+        />
+      )}
+
+      {deleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
+          onClick={() => setDeleteConfirm(null)}
+        >
+          <div
+            className="w-full rounded-t-xl border border-[var(--border)] bg-[var(--bg-mid)] p-5 shadow-2xl sm:mx-4 sm:max-w-xs sm:rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-center text-sm font-medium text-[var(--text)]">
+              Delete this collection?
+            </p>
+            <p className="mt-1 text-center text-xs text-[var(--text-dim)]">
+              This action cannot be undone.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--button-hover)]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                className="flex-1 rounded-lg bg-red-800/60 px-3 py-2 text-sm font-medium text-red-200 transition-colors hover:bg-red-700/60"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {categoryManagerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setCategoryManagerOpen(false)}>
+          <div className="w-full max-w-xl rounded-xl border border-[var(--border)] bg-[var(--bg-mid)] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[var(--text)]">Manage Vault Categories</h3>
+              <button onClick={() => setCategoryManagerOpen(false)} className="flex size-7 items-center justify-center rounded-md text-[var(--text-dim)] hover:bg-[var(--button-hover)]">
+                <XIcon />
+              </button>
+            </div>
+
+            <div className="mb-3 flex gap-2">
+              <input
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30"
+                placeholder="New category name"
+              />
+              <button
+                onClick={handleCreateCategory}
+                disabled={isSavingCategory}
+                className="rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
+              >
+                Add
+              </button>
+            </div>
+
+            <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-start)] p-2">
+              {categories.length === 0 ? (
+                <p className="py-6 text-center text-xs text-[var(--text-dim)]">No categories yet</p>
+              ) : (
+                categories.map((category) => {
+                  const inUse = (category.usageCount ?? 0) > 0;
+                  const isEditing = editingCategoryId === category.id;
+                  return (
+                    <div key={category.id} className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-mid)] p-2">
+                      {isEditing ? (
+                        <input
+                          value={editingCategoryName}
+                          onChange={(e) => setEditingCategoryName(e.target.value)}
+                          className="min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--button)] px-2.5 py-1.5 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30"
+                        />
+                      ) : (
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm text-[var(--text)]">{category.name}</p>
+                          <p className="text-[11px] text-[var(--text-dim)]">Used by {category.usageCount ?? 0} collection{(category.usageCount ?? 0) !== 1 ? 's' : ''}</p>
+                        </div>
+                      )}
+
+                      {isEditing ? (
+                        <>
+                          <button
+                            onClick={handleSaveCategoryEdit}
+                            disabled={isSavingCategory}
+                            className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingCategoryId(null);
+                              setEditingCategoryName('');
+                            }}
+                            className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleStartEditCategory(category)}
+                            className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCategory(category)}
+                            disabled={isSavingCategory || inUse}
+                            className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-red-300 transition-colors hover:bg-red-900/30 disabled:opacity-40"
+                            title={inUse ? 'Cannot delete a category currently used by collections' : 'Delete category'}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useLanguage } from '@/context/language-context';
+import { fetchPublicVaultCollections } from '@/lib/services/public-content';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -15,6 +16,8 @@ export interface CollectionItem {
   media: string[];
   isVideo?: boolean;
   videos?: string[];
+  columnSpan?: number;
+  rowSpan?: number;
 }
 
 const COLLECTIONS: CollectionItem[] = [
@@ -88,6 +91,28 @@ const LAYOUT_CLASSES = [
   '',                                            // 4
   'md:col-span-2 lg:col-span-3',                 // 5 - full width
 ];
+
+function getLayoutClass(item: CollectionItem, index: number): string {
+  if (typeof item.columnSpan === 'number' || typeof item.rowSpan === 'number') {
+    const classes: string[] = [];
+
+    if (item.rowSpan === 2) {
+      classes.push('md:row-span-2');
+    }
+
+    if (item.columnSpan === 2) {
+      classes.push('md:col-span-2 lg:col-span-2');
+    }
+
+    if (item.columnSpan === 3) {
+      classes.push('md:col-span-2 lg:col-span-3');
+    }
+
+    return classes.join(' ');
+  }
+
+  return LAYOUT_CLASSES[index] || '';
+}
 
 interface GalleryProps {
   onOpenCollection: (collection: CollectionItem) => void;
@@ -284,6 +309,35 @@ export default function Gallery({ onOpenCollection }: GalleryProps) {
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [collections, setCollections] = useState<CollectionItem[]>(COLLECTIONS);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCollections = async () => {
+      const rows = await fetchPublicVaultCollections(8);
+      if (!active || rows.length === 0) return;
+
+      setCollections(
+        rows.map((item) => ({
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          thumb: item.thumb,
+          media: item.media,
+          isVideo: item.isVideo,
+          videos: item.videos,
+          columnSpan: item.columnSpan,
+          rowSpan: item.rowSpan,
+        })),
+      );
+    };
+
+    void loadCollections();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -324,12 +378,12 @@ export default function Gallery({ onOpenCollection }: GalleryProps) {
         </p>
 
         <div ref={containerRef} className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
-          {COLLECTIONS.map((item, i) => (
+          {collections.map((item, i) => (
             <GalleryCard
               key={item.id}
               item={item}
               onOpenCollection={onOpenCollection}
-              layoutClass={LAYOUT_CLASSES[i] || ''}
+              layoutClass={getLayoutClass(item, i)}
             />
           ))}
         </div>

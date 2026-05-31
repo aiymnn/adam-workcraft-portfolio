@@ -9,6 +9,45 @@ import {
 
 export const runtime = 'nodejs';
 
+function toSafeWebStream(stream: Readable): ReadableStream<Uint8Array> {
+  let closed = false;
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      const onData = (chunk: Buffer | string) => {
+        if (closed) return;
+        try {
+          const data = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+          controller.enqueue(new Uint8Array(data));
+        } catch {
+          closed = true;
+        }
+      };
+
+      const onEnd = () => {
+        if (closed) return;
+        closed = true;
+        controller.close();
+      };
+
+      const onError = (error: unknown) => {
+        if (closed) return;
+        closed = true;
+        controller.error(error);
+      };
+
+      stream.on('data', onData);
+      stream.on('end', onEnd);
+      stream.on('error', onError);
+      stream.on('close', onEnd);
+    },
+    cancel() {
+      closed = true;
+      stream.destroy();
+    },
+  });
+}
+
 function toAsciiFileName(value: string): string {
   return value.replace(/[^\x20-\x7E]/g, '_');
 }
@@ -57,7 +96,7 @@ export async function GET(
       headers.set('Cache-Control', 'public, max-age=31536000, immutable');
     }
 
-    const webStream = Readable.toWeb(file.stream) as ReadableStream;
+    const webStream = toSafeWebStream(file.stream);
     return new NextResponse(webStream, { status: 200, headers });
   } catch (error) {
     const message = extractGoogleErrorMessage(error);

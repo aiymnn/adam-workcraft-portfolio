@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useLanguage } from '@/context/language-context';
 import SubmitReviewModal from '@/components/ui/submit-review-modal';
+import { fetchPublicReviews } from '@/lib/services/public-content';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -124,7 +126,14 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: { items: Revie
                   <video src={outgoing.src} muted className="size-full rounded-lg object-cover" />
                 </div>
               ) : (
-                <img src={outgoing.src} alt="" className="max-h-[70vh] w-full rounded-lg object-contain" />
+                <Image
+                  src={outgoing.src}
+                  alt=""
+                  width={1600}
+                  height={1000}
+                  unoptimized
+                  className="max-h-[70vh] w-full rounded-lg object-contain"
+                />
               )}
             </div>
           )}
@@ -139,9 +148,12 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: { items: Revie
                 />
               </div>
             ) : (
-              <img
+              <Image
                 src={current.src}
                 alt=""
+                width={1600}
+                height={1000}
+                unoptimized
                 className="max-h-[70vh] w-full rounded-lg object-contain"
               />
             )}
@@ -194,8 +206,32 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: { items: Revie
 export default function Feedback() {
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
+  const [reviews, setReviews] = useState<ReviewItem[]>(REVIEWS);
   const [lightbox, setLightbox] = useState<{ items: ReviewMedia[]; index: number } | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadReviews = async () => {
+      const rows = await fetchPublicReviews(6);
+      if (!active || rows.length === 0) return;
+
+      setReviews(
+        rows.map((item) => ({
+          quote: item.quote,
+          author: item.author,
+          role: item.role,
+          collection: item.collection,
+        })),
+      );
+    };
+
+    void loadReviews();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -235,7 +271,7 @@ export default function Feedback() {
         </h2>
 
         <div className="grid gap-5 sm:grid-cols-2 md:gap-6">
-          {REVIEWS.map((item, i) => (
+          {reviews.map((item, i) => (
             <div
               key={i}
               className="feedback-card group relative flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-stone-900/40 p-6 md:p-8"
