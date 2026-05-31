@@ -38,13 +38,13 @@ const ScheduleDialog = memo(function ScheduleDialog({
   onClose,
   onDelete,
 }: ScheduleDialogProps) {
-  if (!open) return null;
-
   const [dateOpen, setDateOpen] = useState(false);
+
+  if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 backdrop-blur-sm p-4"
+      className="scrollbar-hidden fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
@@ -63,7 +63,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
           </button>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 min-h-0 sm:overflow-y-visible">
+        <div className="scrollbar-hidden flex-1 min-h-0 space-y-4 overflow-y-auto px-4 py-4 sm:overflow-y-visible sm:px-5 sm:py-5">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-[var(--text-muted)]">Date</label>
             <Popover open={dateOpen} onOpenChange={setDateOpen}>

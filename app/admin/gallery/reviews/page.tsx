@@ -139,7 +139,14 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: ReviewLightbox
                   <video src={outgoing.src} muted className="size-full rounded-lg object-cover" />
                 </div>
               ) : (
-                <img src={outgoing.src} alt="" className="max-h-[70vh] w-full rounded-lg object-contain" />
+                <Image
+                  src={outgoing.src}
+                  alt=""
+                  width={1600}
+                  height={900}
+                  unoptimized
+                  className="max-h-[70vh] w-full rounded-lg object-contain"
+                />
               )}
             </div>
           )}
@@ -154,9 +161,12 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: ReviewLightbox
                 />
               </div>
             ) : (
-              <img
+              <Image
                 src={current.src}
                 alt=""
+                width={1600}
+                height={900}
+                unoptimized
                 className="max-h-[70vh] w-full rounded-lg object-contain"
               />
             )}
@@ -270,16 +280,6 @@ function EditReviewDialog({ open, item, saving, uploadProgress, uploadStage, onS
   const { toast } = useToast();
 
   useEffect(() => {
-    setForm(item);
-    setPendingMedia((prev) => {
-      for (const media of prev) {
-        URL.revokeObjectURL(media.previewUrl);
-      }
-      return [];
-    });
-  }, [item]);
-
-  useEffect(() => {
     pendingMediaRef.current = pendingMedia;
   }, [pendingMedia]);
 
@@ -332,6 +332,13 @@ function EditReviewDialog({ open, item, saving, uploadProgress, uploadStage, onS
     if (!form.author.trim() || !form.quote.trim()) return;
     onSave({ item: { ...form, author: form.author.trim(), quote: form.quote.trim() }, original: item, pendingMedia });
   };
+
+  const isSaveDisabled = useMemo(() => {
+    if (saving) return true;
+    if (!form.author.trim()) return true;
+    if (!form.quote.trim()) return true;
+    return false;
+  }, [form.author, form.quote, saving]);
 
   const removeMedia = useCallback((index: number) => {
     setForm((prev) => ({
@@ -397,49 +404,6 @@ function EditReviewDialog({ open, item, saving, uploadProgress, uploadStage, onS
     videoInputRef.current?.click();
   }, []);
 
-  const moveArrayItem = useCallback(<T,>(arr: T[], fromIndex: number, toIndex: number): T[] => {
-    if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= arr.length || toIndex < 0 || toIndex >= arr.length) {
-      return arr;
-    }
-    const next = [...arr];
-    const [itemToMove] = next.splice(fromIndex, 1);
-    next.splice(toIndex, 0, itemToMove);
-    return next;
-  }, []);
-
-  const moveMediaItem = useCallback((media: (typeof combinedMedia)[number], direction: 'up' | 'down') => {
-    if (media.source === 'pending') {
-      setPendingMedia((prev) => {
-        const fromIndex = prev.findIndex((entry) => entry.id === media.pendingId);
-        if (fromIndex === -1) return prev;
-        const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
-        return moveArrayItem(prev, fromIndex, toIndex);
-      });
-      return;
-    }
-
-    setForm((prev) => ({
-      ...prev,
-      collection: moveArrayItem(prev.collection, media.sourceIndex, direction === 'up' ? media.sourceIndex - 1 : media.sourceIndex + 1),
-    }));
-  }, [moveArrayItem]);
-
-  const canMoveUp = useCallback((media: (typeof combinedMedia)[number]) => {
-    if (media.source === 'pending') {
-      const idx = pendingMedia.findIndex((entry) => entry.id === media.pendingId);
-      return idx > 0;
-    }
-    return media.sourceIndex > 0;
-  }, [pendingMedia]);
-
-  const canMoveDown = useCallback((media: (typeof combinedMedia)[number]) => {
-    if (media.source === 'pending') {
-      const idx = pendingMedia.findIndex((entry) => entry.id === media.pendingId);
-      return idx !== -1 && idx < pendingMedia.length - 1;
-    }
-    return media.sourceIndex < form.collection.length - 1;
-  }, [form.collection.length, pendingMedia]);
-
   if (!open) return null;
 
   return (
@@ -463,7 +427,7 @@ function EditReviewDialog({ open, item, saving, uploadProgress, uploadStage, onS
           </button>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+        <div className="scrollbar-hidden flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
           <input
             ref={imageInputRef}
             type="file"
@@ -576,7 +540,7 @@ function EditReviewDialog({ open, item, saving, uploadProgress, uploadStage, onS
               className="mb-2"
             />
 
-            <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-start)] p-2">
+            <div className="scrollbar-hidden max-h-64 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-start)] p-2">
               {combinedMedia.length === 0 ? (
                 <p className="py-6 text-center text-xs text-[var(--text-dim)]">No media yet. Upload from your device.</p>
               ) : (
@@ -607,28 +571,6 @@ function EditReviewDialog({ open, item, saving, uploadProgress, uploadStage, onS
                     >
                       <XIcon className="size-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => moveMediaItem(media, 'up')}
-                      disabled={!canMoveUp(media)}
-                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-40"
-                      title="Move up"
-                    >
-                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveMediaItem(media, 'down')}
-                      disabled={!canMoveDown(media)}
-                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-40"
-                      title="Move down"
-                    >
-                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                      </svg>
-                    </button>
                   </div>
                 ))
               )}
@@ -646,7 +588,7 @@ function EditReviewDialog({ open, item, saving, uploadProgress, uploadStage, onS
           </button>
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={isSaveDisabled}
             className="min-h-10 flex-1 rounded-lg bg-[var(--text)] px-3 py-2 text-sm font-medium text-[var(--bg-end)] transition-colors hover:opacity-90 disabled:opacity-60"
           >
             {saving ? 'Saving...' : 'Save'}
@@ -859,7 +801,7 @@ export default function ReviewCollectionPage() {
           <DesktopSidebar expanded={sidebarExpanded} />
         )}
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="scrollbar-hidden flex-1 overflow-y-auto">
           <AdminPageShell>
             <AdminPageHeader
               title="Review Collection"
@@ -1097,6 +1039,7 @@ export default function ReviewCollectionPage() {
 
       {editItem && (
         <EditReviewDialog
+          key={editItem.id || 'new-review'}
           open
           item={editItem}
           saving={isSavingEdit}

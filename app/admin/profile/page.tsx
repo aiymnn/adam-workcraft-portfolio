@@ -427,7 +427,7 @@ export default function ProfilePage() {
           <DesktopSidebar expanded={sidebarExpanded} />
         )}
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="scrollbar-hidden flex-1 overflow-y-auto">
           <AdminPageShell>
             <AdminPageHeader title="Profile Settings" description="Manage your personal information and password" />
 

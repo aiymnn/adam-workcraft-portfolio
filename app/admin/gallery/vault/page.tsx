@@ -231,52 +231,21 @@ function VaultLightbox({ items, index, onClose, onIndexChange }: VaultLightboxPr
 interface VaultRowProps {
   item: PublicVaultCollection;
   index: number;
-  total: number;
-  categoryOptions: SelectOption[];
-  disableReorder?: boolean;
-  onMoveUp: (id: string) => void;
-  onMoveDown: (id: string) => void;
   onUpdate: (id: string, updates: Partial<PublicVaultCollection>) => void;
   onEdit: (item: PublicVaultCollection) => void;
   onPreview: (item: PublicVaultCollection) => void;
   onDelete: (id: string) => void;
 }
 
-function VaultRow({ item, index, total, categoryOptions, disableReorder = false, onMoveUp, onMoveDown, onUpdate, onEdit, onPreview, onDelete }: VaultRowProps) {
+function VaultRow({ item, index, onUpdate, onEdit, onPreview, onDelete }: VaultRowProps) {
   const isVideo = item.isVideo;
   const hasMedia = item.media.length > 0 || (item.videos?.length ?? 0) > 0;
-  const moveUpDisabled = disableReorder || index === 0;
-  const moveDownDisabled = disableReorder || index === total - 1;
-  const effectiveCategoryOptions = useMemo(() => {
-    if (categoryOptions.some((option) => option.value === item.category)) return categoryOptions;
-    return [{ value: item.category, label: item.category }, ...categoryOptions];
-  }, [categoryOptions, item.category]);
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-start)] transition-colors hover:border-[var(--button-hover)]">
       <div className="flex flex-col md:flex-row md:items-center md:gap-3 md:p-3">
-        <div className="flex items-center gap-1.5 px-4 pt-4 md:px-0 md:pt-0">
-          <button
-            onClick={() => onMoveUp(item.id)}
-            disabled={moveUpDisabled}
-            className="flex size-8 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-20"
-            title={disableReorder ? 'Clear filters to reorder' : 'Move up'}
-          >
-            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-            </svg>
-          </button>
-          <button
-            onClick={() => onMoveDown(item.id)}
-            disabled={moveDownDisabled}
-            className="flex size-8 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-20"
-            title={disableReorder ? 'Clear filters to reorder' : 'Move down'}
-          >
-            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-            </svg>
-          </button>
-          <span className="ml-1 w-5 text-xs font-medium text-[var(--text-dim)]">{index + 1}</span>
+        <div className="flex items-center px-4 pt-4 md:px-0 md:pt-0">
+          <span className="w-6 text-xs font-medium text-[var(--text-dim)]">{index + 1}</span>
         </div>
 
         <div className="flex items-center gap-3 px-4 pt-3 md:px-0 md:pt-0">
@@ -298,29 +267,16 @@ function VaultRow({ item, index, total, categoryOptions, disableReorder = false,
               />
             )}
           </div>
-          <span className="truncate text-sm font-medium text-[var(--text)]">{item.title}</span>
         </div>
 
-        <input
-          key={`${item.id}-${item.title}`}
-          defaultValue={item.title}
-          onBlur={(e) => {
-            const nextTitle = e.currentTarget.value.trim();
-            if (nextTitle && nextTitle !== item.title) {
-              onUpdate(item.id, { title: nextTitle });
-            }
-          }}
-          className="mx-4 mt-3 hidden min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-1.5 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30 md:mx-0 md:mt-0 md:block"
-          placeholder="Collection title"
-        />
+        <div className="mx-4 mt-3 hidden min-w-0 flex-1 md:mx-0 md:mt-0 md:block">
+          <p className="truncate text-sm font-medium text-[var(--text)]">{item.title}</p>
+        </div>
 
-        <div className="mx-4 mt-3 hidden md:mx-0 md:mt-0 md:block">
-          <Select
-            value={item.category}
-            options={effectiveCategoryOptions}
-            onChange={(val) => onUpdate(item.id, { category: val })}
-            className="w-32"
-          />
+        <div className="mx-4 mt-3 hidden md:mx-0 md:mt-0 md:block md:w-32">
+          <span className="inline-flex min-h-9 w-full items-center rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 text-sm text-[var(--text-muted)]">
+            {item.category}
+          </span>
         </div>
 
         <div className="mx-4 mt-3 hidden md:mx-0 md:mt-0 md:flex md:items-center md:gap-2">
@@ -523,6 +479,16 @@ function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploa
     });
   };
 
+  const isSaveDisabled = useMemo(() => {
+    if (saving) return true;
+    if (!form.title.trim()) return true;
+
+    const hasImages = form.media.length > 0 || pendingMedia.some((media) => media.type === 'image');
+    const hasVideos = (form.videos?.length ?? 0) > 0 || pendingMedia.some((media) => media.type === 'video');
+
+    return !hasImages && !hasVideos;
+  }, [form.media.length, form.title, form.videos, pendingMedia, saving]);
+
   const queueFiles = useCallback((files: File[], type: 'image' | 'video') => {
     if (files.length === 0) return;
 
@@ -580,61 +546,6 @@ function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploa
     videoInputRef.current?.click();
   }, []);
 
-  const moveArrayItem = useCallback(<T,>(arr: T[], fromIndex: number, toIndex: number): T[] => {
-    if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= arr.length || toIndex < 0 || toIndex >= arr.length) {
-      return arr;
-    }
-    const next = [...arr];
-    const [itemToMove] = next.splice(fromIndex, 1);
-    next.splice(toIndex, 0, itemToMove);
-    return next;
-  }, []);
-
-  const moveMediaItem = useCallback((media: (typeof combinedMedia)[number], direction: 'up' | 'down') => {
-    if (media.source === 'pending') {
-      setPendingMedia((prev) => {
-        const fromIndex = prev.findIndex((entry) => entry.id === media.pendingId);
-        if (fromIndex === -1) return prev;
-        const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
-        return moveArrayItem(prev, fromIndex, toIndex);
-      });
-      return;
-    }
-
-    if (media.type === 'video') {
-      setForm((prev) => ({
-        ...prev,
-        videos: moveArrayItem(prev.videos ?? [], media.sourceIndex, direction === 'up' ? media.sourceIndex - 1 : media.sourceIndex + 1),
-      }));
-      return;
-    }
-
-    setForm((prev) => ({
-      ...prev,
-      media: moveArrayItem(prev.media, media.sourceIndex, direction === 'up' ? media.sourceIndex - 1 : media.sourceIndex + 1),
-    }));
-  }, [moveArrayItem]);
-
-  const canMoveUp = useCallback((media: (typeof combinedMedia)[number]) => {
-    if (media.source === 'pending') {
-      const idx = pendingMedia.findIndex((entry) => entry.id === media.pendingId);
-      return idx > 0;
-    }
-    return media.sourceIndex > 0;
-  }, [pendingMedia]);
-
-  const canMoveDown = useCallback((media: (typeof combinedMedia)[number]) => {
-    if (media.source === 'pending') {
-      const idx = pendingMedia.findIndex((entry) => entry.id === media.pendingId);
-      return idx !== -1 && idx < pendingMedia.length - 1;
-    }
-    if (media.type === 'video') {
-      const total = form.videos?.length ?? 0;
-      return media.sourceIndex < total - 1;
-    }
-    return media.sourceIndex < form.media.length - 1;
-  }, [form.media.length, form.videos, pendingMedia]);
-
   if (!open) return null;
 
   return (
@@ -658,7 +569,7 @@ function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploa
           </button>
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+        <div className="scrollbar-hidden flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
           <input
             ref={imageInputRef}
             type="file"
@@ -775,7 +686,7 @@ function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploa
               className="mb-2"
             />
 
-            <div className="max-h-52 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--button)] p-2 sm:max-h-56">
+            <div className="scrollbar-hidden max-h-52 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--button)] p-2 sm:max-h-56">
               {combinedMedia.length === 0 ? (
                 <p className="py-6 text-center text-xs text-[var(--text-dim)]">No media yet. Upload from your device.</p>
               ) : (
@@ -824,28 +735,6 @@ function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploa
                     >
                       <XIcon className="size-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => moveMediaItem(media, 'up')}
-                      disabled={!canMoveUp(media)}
-                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-40"
-                      title="Move up"
-                    >
-                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveMediaItem(media, 'down')}
-                      disabled={!canMoveDown(media)}
-                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-40"
-                      title="Move down"
-                    >
-                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                      </svg>
-                    </button>
                   </div>
                 ))
               )}
@@ -863,7 +752,7 @@ function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploa
           </button>
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={isSaveDisabled}
             className="min-h-10 flex-1 rounded-lg bg-[var(--text)] px-3 py-2 text-sm font-medium text-[var(--bg-end)] transition-colors hover:opacity-90 disabled:opacity-60"
           >
             {saving ? 'Saving...' : 'Save'}
@@ -895,6 +784,7 @@ export default function PersonalVaultPage() {
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
   const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const createProfessionalFileName = useCallback((collectionTitle: string, type: 'image' | 'video', file: File) => {
@@ -985,8 +875,6 @@ export default function PersonalVaultPage() {
     });
   }, [sortedCollections, searchQuery, effectiveCategoryFilter]);
 
-  const hasActiveFilter = effectiveCategoryFilter !== 'all' || searchQuery.trim().length > 0;
-
   const handleToggleSidebar = useCallback(() => {
     if (isMobile) {
       setMobileSidebarOpen((prev) => {
@@ -998,46 +886,6 @@ export default function PersonalVaultPage() {
       setSidebarExpanded((prev) => !prev);
     }
   }, [isMobile]);
-
-  const handleMoveUp = useCallback(async (id: string) => {
-    const sorted = [...collections].sort((a, b) => a.order - b.order);
-    const idx = sorted.findIndex((c) => c.id === id);
-    if (idx <= 0) return;
-
-    [sorted[idx - 1], sorted[idx]] = [sorted[idx], sorted[idx - 1]];
-    const next = sorted.map((c, i) => ({ ...c, order: i }));
-    setCollections(next);
-
-    try {
-      await Promise.all([
-        updateAdminVaultCollection(next[idx - 1].id, { order: next[idx - 1].order }),
-        updateAdminVaultCollection(next[idx].id, { order: next[idx].order }),
-      ]);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to reorder collection');
-      setCollections(collections);
-    }
-  }, [collections, toast]);
-
-  const handleMoveDown = useCallback(async (id: string) => {
-    const sorted = [...collections].sort((a, b) => a.order - b.order);
-    const idx = sorted.findIndex((c) => c.id === id);
-    if (idx === -1 || idx >= sorted.length - 1) return;
-
-    [sorted[idx], sorted[idx + 1]] = [sorted[idx + 1], sorted[idx]];
-    const next = sorted.map((c, i) => ({ ...c, order: i }));
-    setCollections(next);
-
-    try {
-      await Promise.all([
-        updateAdminVaultCollection(next[idx].id, { order: next[idx].order }),
-        updateAdminVaultCollection(next[idx + 1].id, { order: next[idx + 1].order }),
-      ]);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to reorder collection');
-      setCollections(collections);
-    }
-  }, [collections, toast]);
 
   const handleUpdate = useCallback(async (id: string, updates: Partial<PublicVaultCollection>) => {
     setCollections((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
@@ -1215,7 +1063,7 @@ export default function PersonalVaultPage() {
   }, [categories, editingCategoryId, editingCategoryName, toast]);
 
   const handleDeleteCategory = useCallback(async (category: VaultCategoryItem) => {
-    setIsSavingCategory(true);
+    setDeletingCategoryId(category.id);
     try {
       await deleteAdminVaultCategory(category.id);
       setCategories((prev) => prev.filter((item) => item.id !== category.id));
@@ -1223,7 +1071,7 @@ export default function PersonalVaultPage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete category');
     } finally {
-      setIsSavingCategory(false);
+      setDeletingCategoryId(null);
     }
   }, [toast]);
 
@@ -1245,11 +1093,11 @@ export default function PersonalVaultPage() {
           <DesktopSidebar expanded={sidebarExpanded} />
         )}
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="scrollbar-hidden flex-1 overflow-y-auto">
           <AdminPageShell>
             <AdminPageHeader
               title="Personal Vault"
-              description="Reorder your vault collections. The order here controls the landing page display."
+              description="Manage your vault collections, categories, and media for the landing page."
               actions={
                 <div className="flex items-center gap-2">
                   <Button
@@ -1279,16 +1127,7 @@ export default function PersonalVaultPage() {
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-start)] p-3 md:gap-3">
                   <p className="text-xs text-[var(--text-dim)]">
-                    Collections appear in this order on the landing page. Use
-                    <span className="mx-1 inline-flex align-middle">
-                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-                      </svg>
-                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                      </svg>
-                    </span>
-                    to rearrange.
+                    Manage your vault collections and media from here.
                   </p>
                   <button
                     onClick={() => window.open('/', '_blank')}
@@ -1314,7 +1153,6 @@ export default function PersonalVaultPage() {
                   filterOptions={vaultFilterOptions}
                   activeFilter={effectiveCategoryFilter}
                   onFilterChange={setCategoryFilter}
-                  helperText={hasActiveFilter ? 'Reordering is temporarily disabled while filters are active.' : undefined}
                 />
 
                 {collections.length === 0 ? (
@@ -1346,11 +1184,6 @@ export default function PersonalVaultPage() {
                         key={item.id}
                         item={item}
                         index={index}
-                        total={filteredCollections.length}
-                        categoryOptions={categoryOptions}
-                        disableReorder={hasActiveFilter}
-                        onMoveUp={handleMoveUp}
-                        onMoveDown={handleMoveDown}
                         onUpdate={handleUpdate}
                         onEdit={handleEdit}
                         onPreview={handlePreview}
@@ -1449,13 +1282,14 @@ export default function PersonalVaultPage() {
               </button>
             </div>
 
-            <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-start)] p-2">
+            <div className="scrollbar-hidden max-h-72 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-start)] p-2">
               {categories.length === 0 ? (
                 <p className="py-6 text-center text-xs text-[var(--text-dim)]">No categories yet</p>
               ) : (
                 categories.map((category) => {
                   const inUse = (category.usageCount ?? 0) > 0;
                   const isEditing = editingCategoryId === category.id;
+                  const isDeleting = deletingCategoryId === category.id;
                   return (
                     <div key={category.id} className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-mid)] p-2">
                       {isEditing ? (
@@ -1475,7 +1309,7 @@ export default function PersonalVaultPage() {
                         <>
                           <button
                             onClick={handleSaveCategoryEdit}
-                            disabled={isSavingCategory}
+                            disabled={isSavingCategory || Boolean(deletingCategoryId)}
                             className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
                           >
                             Save
@@ -1494,17 +1328,18 @@ export default function PersonalVaultPage() {
                         <>
                           <button
                             onClick={() => handleStartEditCategory(category)}
+                            disabled={isSavingCategory || Boolean(deletingCategoryId)}
                             className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDeleteCategory(category)}
-                            disabled={isSavingCategory || inUse}
+                            disabled={isSavingCategory || Boolean(deletingCategoryId) || inUse}
                             className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-red-300 transition-colors hover:bg-red-900/30 disabled:opacity-40"
                             title={inUse ? 'Cannot delete a category currently used by collections' : 'Delete category'}
                           >
-                            Delete
+                            {isDeleting ? 'Deleting...' : 'Delete'}
                           </button>
                         </>
                       )}

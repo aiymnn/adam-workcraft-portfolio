@@ -134,7 +134,7 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
       className="shrink-0 overflow-hidden border-r border-[var(--border)] bg-[var(--bg-mid)]/60 transition-[width] duration-300 ease-in-out flex flex-col"
       style={{ willChange: 'width', width: expanded ? '14rem' : '3.5rem' }}
     >
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+      <nav className="scrollbar-hidden flex-1 space-y-1 overflow-y-auto p-3">
         {MAIN_ITEMS.map((item) => {
           if (item.children) {
             const parentActive = isActive('/admin/' + item.id, pathname);
@@ -301,7 +301,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+        <nav className="scrollbar-hidden flex-1 space-y-1 overflow-y-auto p-4">
           {MAIN_ITEMS.map((item) => {
             if (item.children) {
               const parentActive = isActive('/admin/' + item.id, pathname);

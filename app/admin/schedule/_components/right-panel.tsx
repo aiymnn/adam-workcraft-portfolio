@@ -72,7 +72,7 @@ const RightPanel = memo(function RightPanel({
         </Button>
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto p-3">
+      <div className="scrollbar-hidden flex-1 space-y-2 overflow-y-auto p-3">
         {dayBookings.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="mb-3 flex size-12 items-center justify-center rounded-full border border-dashed border-[var(--border)]">

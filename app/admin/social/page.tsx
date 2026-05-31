@@ -158,7 +158,7 @@ export default function SocialPage() {
           <DesktopSidebar expanded={sidebarExpanded} />
         )}
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="scrollbar-hidden flex-1 overflow-y-auto">
           <AdminPageShell>
             <AdminPageHeader
               title="Social Media"
