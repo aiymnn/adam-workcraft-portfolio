@@ -42,6 +42,26 @@ export function MenuIcon({ className, ...props }: IconProps) {
   );
 }
 
+export function SidebarExpandIcon({ className, ...props }: IconProps) {
+  return (
+    <svg className={className || 'size-4'} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 4v16" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.5 9.5L18 12l-3.5 2.5" />
+    </svg>
+  );
+}
+
+export function SidebarCollapseIcon({ className, ...props }: IconProps) {
+  return (
+    <svg className={className || 'size-4'} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 4v16" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17.5 9.5L14 12l3.5 2.5" />
+    </svg>
+  );
+}
+
 export function SunIcon({ className, ...props }: IconProps) {
   return (
     <svg className={className || 'size-4'} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>

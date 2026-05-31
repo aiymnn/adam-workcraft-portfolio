@@ -56,6 +56,28 @@ function useMediaQuery(query: string): boolean {
   return matches;
 }
 
+function preloadLightboxMedia(src: string, type: 'image' | 'video'): Promise<void> {
+  if (typeof window === 'undefined' || !src) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    if (type === 'video') {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadeddata = () => resolve();
+      video.onerror = () => resolve();
+      video.src = src;
+      return;
+    }
+
+    const image = new window.Image();
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+    image.src = src;
+  });
+}
+
 interface VaultLightboxMedia {
   src: string;
   type: 'image' | 'video';
@@ -75,12 +97,14 @@ function VaultLightbox({ items, index, onClose, onIndexChange }: VaultLightboxPr
   const prevIndexRef = useRef(index);
   const [outgoing, setOutgoing] = useState<VaultLightboxMedia | null>(null);
   const [current, setCurrent] = useState(items[index]);
+  const [mediaReady, setMediaReady] = useState(false);
 
   useEffect(() => {
     if (index === prevIndexRef.current) return;
     setOutgoing(current);
     prevIndexRef.current = index;
     setCurrent(items[index]);
+    setMediaReady(false);
   }, [index, items, current]);
 
   useEffect(() => {
@@ -146,11 +170,21 @@ function VaultLightbox({ items, index, onClose, onIndexChange }: VaultLightboxPr
         </button>
 
         <div ref={mediaWrapRef} className="relative w-full">
+          {!mediaReady && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-black/55 backdrop-blur-sm">
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">
+                <svg className="size-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 12a8 8 0 018-8m0 0a8 8 0 018 8m-8-8v8" />
+                </svg>
+                Loading preview...
+              </div>
+            </div>
+          )}
           {outgoing && (
             <div className="absolute inset-0 z-10 animate-[fadeOut_0.4s_ease-out_forwards]">
               {outgoing.type === 'video' ? (
                 <div className="aspect-video">
-                  <video src={outgoing.src} muted className="size-full rounded-lg object-cover" />
+                  <video src={outgoing.src} muted preload="metadata" className="size-full rounded-lg object-cover" />
                 </div>
               ) : (
                 <Image
@@ -171,6 +205,8 @@ function VaultLightbox({ items, index, onClose, onIndexChange }: VaultLightboxPr
                   src={current.src}
                   controls
                   muted
+                  preload="metadata"
+                  onLoadedData={() => setMediaReady(true)}
                   className="size-full rounded-lg object-cover"
                 />
               </div>
@@ -181,6 +217,7 @@ function VaultLightbox({ items, index, onClose, onIndexChange }: VaultLightboxPr
                 width={1600}
                 height={900}
                 unoptimized
+                onLoad={() => setMediaReady(true)}
                 className="max-h-[70vh] w-full rounded-lg object-contain"
               />
             )}
@@ -231,15 +268,17 @@ function VaultLightbox({ items, index, onClose, onIndexChange }: VaultLightboxPr
 interface VaultRowProps {
   item: PublicVaultCollection;
   index: number;
+  previewLoadingId: string | null;
   onUpdate: (id: string, updates: Partial<PublicVaultCollection>) => void;
   onEdit: (item: PublicVaultCollection) => void;
   onPreview: (item: PublicVaultCollection) => void;
   onDelete: (id: string) => void;
 }
 
-function VaultRow({ item, index, onUpdate, onEdit, onPreview, onDelete }: VaultRowProps) {
+function VaultRow({ item, index, previewLoadingId, onUpdate, onEdit, onPreview, onDelete }: VaultRowProps) {
   const isVideo = item.isVideo;
   const hasMedia = item.media.length > 0 || (item.videos?.length ?? 0) > 0;
+  const isPreviewLoading = previewLoadingId === item.id;
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-start)] transition-colors hover:border-[var(--button-hover)]">
@@ -297,13 +336,19 @@ function VaultRow({ item, index, onUpdate, onEdit, onPreview, onDelete }: VaultR
         <div className="mx-4 mt-3 hidden md:mx-0 md:mt-0 md:flex md:items-center md:gap-1">
           <button
             onClick={() => onPreview(item)}
-            disabled={!hasMedia}
+            disabled={!hasMedia || isPreviewLoading}
             className="flex size-8 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-50"
             title="Preview collection"
           >
-            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
+            {isPreviewLoading ? (
+              <svg className="size-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 12a8 8 0 018-8m0 0a8 8 0 018 8m-8-8v8" />
+              </svg>
+            ) : (
+              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            )}
           </button>
           <button
             onClick={() => onEdit(item)}
@@ -335,13 +380,19 @@ function VaultRow({ item, index, onUpdate, onEdit, onPreview, onDelete }: VaultR
         <div className="flex gap-3">
           <button
             onClick={() => onPreview(item)}
-            disabled={!hasMedia}
+            disabled={!hasMedia || isPreviewLoading}
             className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--button)] px-4 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-50"
           >
-            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Preview
+            {isPreviewLoading ? (
+              <svg className="size-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 12a8 8 0 018-8m0 0a8 8 0 018 8m-8-8v8" />
+              </svg>
+            ) : (
+              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            )}
+            {isPreviewLoading ? 'Loading...' : 'Preview'}
           </button>
           <button
             onClick={() => onEdit(item)}
@@ -774,6 +825,7 @@ export default function PersonalVaultPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [lightbox, setLightbox] = useState<{ items: VaultLightboxMedia[]; index: number } | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<PublicVaultCollection | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -903,14 +955,20 @@ export default function PersonalVaultPage() {
     setEditItem(item);
   }, []);
 
-  const handlePreview = useCallback((item: PublicVaultCollection) => {
+  const handlePreview = useCallback(async (item: PublicVaultCollection) => {
     const items: VaultLightboxMedia[] = [
       ...item.media.map((src) => ({ src, type: 'image' as const })),
       ...(item.videos ?? []).map((src) => ({ src, type: 'video' as const })),
     ];
 
     if (items.length > 0) {
-      setLightbox({ items, index: 0 });
+      setPreviewLoadingId(item.id);
+      try {
+        await preloadLightboxMedia(items[0].src, items[0].type);
+        setLightbox({ items, index: 0 });
+      } finally {
+        setPreviewLoadingId(null);
+      }
     }
   }, []);
 
@@ -1184,6 +1242,7 @@ export default function PersonalVaultPage() {
                         key={item.id}
                         item={item}
                         index={index}
+                        previewLoadingId={previewLoadingId}
                         onUpdate={handleUpdate}
                         onEdit={handleEdit}
                         onPreview={handlePreview}

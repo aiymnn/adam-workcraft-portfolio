@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { BRAND_ICON_MIME_TYPE, BRAND_ICON_PATH, BRAND_NAME } from '@/lib/branding';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,9 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Adam Workcraft | Wedding & Event Photography",
+  title: `${BRAND_NAME} | Wedding & Event Photography`,
   description:
     "Premium wedding and event photography by Adam Workcraft. Capturing timeless moments with elegance and authenticity.",
+  icons: {
+    icon: [{ url: BRAND_ICON_PATH, type: BRAND_ICON_MIME_TYPE }],
+    shortcut: [BRAND_ICON_PATH],
+    apple: [{ url: BRAND_ICON_PATH, type: BRAND_ICON_MIME_TYPE }],
+  },
 };
 
 export default function RootLayout({
