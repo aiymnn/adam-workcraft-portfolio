@@ -221,3 +221,11 @@ export function BarChartIcon({ className, ...props }: IconProps) {
     </svg>
   );
 }
+
+export function MailIcon({ className, ...props }: IconProps) {
+  return (
+    <svg className={className || 'size-4 shrink-0'} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5A2.25 2.25 0 0119.5 19.5h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0l-8.69 5.792a2.25 2.25 0 01-2.496 0L2.25 6.75" />
+    </svg>
+  );
+}

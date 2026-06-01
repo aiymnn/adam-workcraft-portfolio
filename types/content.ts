@@ -46,6 +46,22 @@ export interface PublicAdminProfile {
   avatarUrl: string;
 }
 
+export interface PublicContactMessageInput {
+  name: string;
+  email: string;
+  message: string;
+  website?: string;
+}
+
+export interface AdminContactMessageItem {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export interface VaultCategoryItem {
   id: string;
   name: string;

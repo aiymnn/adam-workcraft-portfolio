@@ -1,9 +1,12 @@
 'use client';
 
 import Image from 'next/image';
+import { useEffect, useRef } from 'react';
 import { useAdminTheme } from '@/context/admin-theme-context';
 import { MenuIcon, SunIcon, MoonIcon, SidebarCollapseIcon, SidebarExpandIcon } from '@/components/shared/icons';
 import { BRAND_ICON_PATH, BRAND_NAME } from '@/lib/branding';
+import { fetchAdminMessageSummary } from '@/lib/services/admin-messages';
+import { useToast } from '@/hooks/use-toast';
 
 interface AdminHeaderProps {
   sidebarExpanded: boolean;
@@ -17,6 +20,54 @@ export default function AdminHeader({
   onToggleSidebar,
 }: AdminHeaderProps) {
   const { theme, toggleTheme, mounted } = useAdminTheme();
+  const { toast } = useToast();
+  const unreadCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const syncUnreadCount = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+
+      try {
+        const summary = await fetchAdminMessageSummary();
+        if (!active) return;
+
+        const previous = unreadCountRef.current;
+        const current = summary.unreadCount;
+
+        if (previous !== null && current > previous) {
+          const delta = current - previous;
+          toast.info(
+            delta === 1 ? 'New message received' : `${delta} new messages received`,
+            'Open Messages to review incoming contact submissions.',
+          );
+        }
+
+        unreadCountRef.current = current;
+      } catch {
+      }
+    };
+
+    void syncUnreadCount();
+
+    const interval = window.setInterval(() => {
+      void syncUnreadCount();
+    }, 45000);
+
+    const onVisibilityChange = () => {
+      void syncUnreadCount();
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [toast]);
+
   const toggleLabel = isMobile
     ? 'Toggle menu'
     : sidebarExpanded

@@ -1,4 +1,4 @@
-import type { PublicAdminProfile, PublicReviewItem, PublicSocialLinks, PublicVaultCollection, StoryLoopImagePublicItem } from '@/types/content';
+import type { PublicAdminProfile, PublicContactMessageInput, PublicReviewItem, PublicSocialLinks, PublicVaultCollection, StoryLoopImagePublicItem } from '@/types/content';
 
 interface VaultResponse {
   success?: boolean;
@@ -23,6 +23,11 @@ interface StoryLoopImageResponse {
 interface AdminProfileResponse {
   success?: boolean;
   profile?: PublicAdminProfile;
+}
+
+interface ContactMessageResponse {
+  success?: boolean;
+  message?: string;
 }
 
 export async function fetchPublicVaultCollections(limit = 6): Promise<PublicVaultCollection[]> {
@@ -77,5 +82,22 @@ export async function fetchPublicStoryLoopImages(): Promise<StoryLoopImagePublic
     return data.logos || [];
   } catch {
     return [];
+  }
+}
+
+export async function submitPublicContactMessage(payload: PublicContactMessageInput): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch('/api/public/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as ContactMessageResponse;
+    if (!res.ok || !data.success) {
+      return { success: false, message: data.message || 'Failed to send message' };
+    }
+    return { success: true, message: data.message || 'Message sent successfully' };
+  } catch {
+    return { success: false, message: 'Failed to send message' };
   }
 }

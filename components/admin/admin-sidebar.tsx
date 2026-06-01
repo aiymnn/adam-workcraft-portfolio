@@ -3,10 +3,50 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
-import { GridIcon, PersonIcon, CalendarIcon, ShareIcon, FolderIcon, BarChartIcon, ExternalLinkIcon, LogoutIcon, ChevronDownIcon, XIcon } from '@/components/shared/icons';
+import { GridIcon, PersonIcon, CalendarIcon, ShareIcon, FolderIcon, BarChartIcon, ExternalLinkIcon, LogoutIcon, ChevronDownIcon, XIcon, MailIcon } from '@/components/shared/icons';
 import { DEFAULT_PROFILE, PROFILE_UPDATED_EVENT, SOCIAL_PLATFORMS, type SocialPlatformId, type AdminProfile, loadProfile } from '@/lib/constants';
 import { logout } from '@/lib/services/auth';
+import { fetchAdminMessageSummary } from '@/lib/services/admin-messages';
 import { useToast } from '@/hooks/use-toast';
+
+const ADMIN_MESSAGES_UPDATED_EVENT = 'admin-messages-updated';
+
+function useUnreadMessagesCount() {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    const sync = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      try {
+        const summary = await fetchAdminMessageSummary();
+        if (active) {
+          setUnreadCount(summary.unreadCount);
+        }
+      } catch {
+      }
+    };
+
+    void sync();
+
+    const interval = window.setInterval(() => {
+      void sync();
+    }, 45000);
+
+    window.addEventListener(ADMIN_MESSAGES_UPDATED_EVENT, sync as EventListener);
+    document.addEventListener('visibilitychange', sync);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener(ADMIN_MESSAGES_UPDATED_EVENT, sync as EventListener);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, []);
+
+  return unreadCount;
+}
 
 type SidebarItem = {
   id: string;
@@ -19,6 +59,7 @@ type SidebarItem = {
 const MAIN_ITEMS: SidebarItem[] = [
   { id: 'dashboard', label: 'Dashboard', href: '/admin/dashboard', icon: GridIcon },
   { id: 'scheduling', label: 'Scheduling', href: '/admin/schedule', icon: CalendarIcon },
+  { id: 'messages', label: 'Messages', href: '/admin/messages', icon: MailIcon },
   { id: 'statistics', label: 'Statistics', href: '/admin/statistics', icon: BarChartIcon },
   {
     id: 'gallery',
@@ -112,6 +153,7 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
   });
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState<AdminProfile>(DEFAULT_PROFILE);
+  const unreadMessages = useUnreadMessagesCount();
   useEffect(() => {
     const refreshProfile = () => setProfile(loadProfile());
 
@@ -196,11 +238,19 @@ export function DesktopSidebar({ expanded }: DesktopSidebarProps) {
                 active
                   ? 'bg-[var(--button-hover)] text-[var(--text)]'
                   : 'text-[var(--text-dim)] hover:bg-[var(--button)] hover:text-[var(--text-muted)]'
-              } ${expanded ? 'gap-3 px-3 justify-start' : 'justify-center px-0'}`}
+              } ${expanded ? 'gap-3 px-3 justify-start' : 'justify-center px-0'} relative`}
               title={!expanded ? item.label : undefined}
             >
               {Icon && <Icon />}
               <span className={`truncate ${expanded ? '' : 'hidden'}`}>{item.label}</span>
+              {item.id === 'messages' && unreadMessages > 0 && expanded && (
+                <span className="ml-auto rounded-full bg-amber-900/50 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                  {unreadMessages > 99 ? '99+' : unreadMessages}
+                </span>
+              )}
+              {item.id === 'messages' && unreadMessages > 0 && !expanded && (
+                <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-amber-300" />
+              )}
             </button>
           );
         })}
@@ -258,6 +308,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
   });
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState<AdminProfile>(DEFAULT_PROFILE);
+  const unreadMessages = useUnreadMessagesCount();
   useEffect(() => {
     const refreshProfile = () => setProfile(loadProfile());
 
@@ -361,6 +412,11 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
               >
                 {Icon && <Icon />}
                 <span className="truncate">{item.label}</span>
+                {item.id === 'messages' && unreadMessages > 0 && (
+                  <span className="ml-auto rounded-full bg-amber-900/50 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                    {unreadMessages > 99 ? '99+' : unreadMessages}
+                  </span>
+                )}
               </button>
             );
           })}

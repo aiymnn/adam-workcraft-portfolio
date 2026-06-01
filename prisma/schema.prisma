@@ -166,6 +166,20 @@ model StoryLoopLogo {
   @@map("story_loop_logos")
 }
 
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([createdAt])
+  @@index([isRead])
+  @@map("contact_messages")
+}
+
 model PageVisit {
   id         String   @id @default(cuid())
   path       String

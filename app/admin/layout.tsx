@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 
 const ADMIN_TAB_TITLE_BY_PATH: Array<{ test: RegExp; title: string }> = [
   { test: /^\/admin\/dashboard$/, title: 'Dashboard' },
+  { test: /^\/admin\/messages$/, title: 'Messages' },
   { test: /^\/admin\/basic-info$/, title: 'Basic Info' },
   { test: /^\/admin\/profile$/, title: 'Profile' },
   { test: /^\/admin\/schedule$/, title: 'Schedule' },
