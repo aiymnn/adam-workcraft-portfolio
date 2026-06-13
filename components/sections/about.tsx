@@ -17,11 +17,7 @@ const STATS = [
   { value: 86, key: 'clients' as const },
 ];
 
-const SERVICES = [
-  'Wedding Event',
-  'Engagement Event',
-  'Corporate Event',
-];
+// Removed hardcoded SERVICES array
 
 // Simple CSS Marquee Component
 function ToolStrip() {
@@ -186,12 +182,12 @@ export default function About({ onInitialDataReady }: AboutProps) {
             {t.about.servicesLabel}
           </p>
           <div className="mt-6 flex flex-wrap gap-3 md:mt-8">
-            {SERVICES.map((s) => (
+            {t.about.servicesList?.map((service, index) => (
               <span
-                key={s}
+                key={index}
                 className="rounded-full border border-stone-800 bg-stone-900/50 px-5 py-2 text-sm font-medium text-[var(--text-muted)] backdrop-blur-sm transition-all duration-300 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-200"
               >
-                {s}
+                {service}
               </span>
             ))}
           </div>

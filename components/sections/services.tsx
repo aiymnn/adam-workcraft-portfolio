@@ -90,7 +90,7 @@ export default function Services({ onSelectCategory }: ServicesProps) {
         </p>
       </div>
 
-      <div className="flex h-[100vh] md:h-[80vh] w-full flex-col md:flex-row">
+      <div className="flex h-[100vh] w-full flex-col md:flex-row">
         {SERVICES_DATA.map((service, index) => (
           <div
             key={service.id}
