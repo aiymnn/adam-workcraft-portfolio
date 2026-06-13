@@ -817,6 +817,7 @@ function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploa
 export default function PersonalVaultPage() {
   const router = useRouter();
   const isMobile = useMediaQuery('(max-width: 1023px)');
+  const [mounted, setMounted] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [collections, setCollections] = useState<PublicVaultCollection[]>([]);
@@ -838,6 +839,10 @@ export default function PersonalVaultPage() {
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const createProfessionalFileName = useCallback((collectionTitle: string, type: 'image' | 'video', file: File) => {
     const extFromName = file.name.includes('.') ? file.name.split('.').pop() || '' : '';
@@ -1132,6 +1137,10 @@ export default function PersonalVaultPage() {
       setDeletingCategoryId(null);
     }
   }, [toast]);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen flex-col">

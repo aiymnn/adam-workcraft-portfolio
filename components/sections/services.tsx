@@ -1,23 +1,20 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useLanguage } from '@/context/language-context';
+import { fetchPublicCollection } from '@/lib/services/public-content';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const SERVICES_DATA = [
+const DEFAULT_SERVICES_DATA = [
   {
     id: 'photo',
     key: 'photo' as const,
     desc: 'Preserving your authentic memories in stunning detail. From intimate portraits to grand celebrations, every shot tells a story.',
-    images: [
-      '/design1.jpg',
-      '/design2.jpg',
-      '/design3.jpg',
-    ],
+    images: ['/design1.jpg', '/design2.jpg', '/design3.jpg'],
     isVideo: false,
   },
   {
@@ -30,25 +27,47 @@ const SERVICES_DATA = [
 ];
 
 interface ServicesProps {
+  initialMediaItems: any[];
   onSelectCategory?: (category: string) => void;
+  onInitialDataReady?: () => void;
 }
 
-export default function Services({ onSelectCategory }: ServicesProps) {
+export default function Services({ initialMediaItems, onSelectCategory, onInitialDataReady }: ServicesProps) {
   const { t } = useLanguage();
   const containerRef = useRef<HTMLElement>(null);
   const mobileRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [photoIndex, setPhotoIndex] = useState(0);
 
+  const servicesData = useMemo(() => {
+    const images = initialMediaItems.filter((i: any) => i.type === 'image').map((i: any) => i.src);
+    const videos = initialMediaItems.filter((i: any) => i.type === 'video').map((i: any) => i.src);
+    
+    return [
+      {
+        ...DEFAULT_SERVICES_DATA[0],
+        images: images.length > 0 ? images : DEFAULT_SERVICES_DATA[0].images,
+      },
+      {
+        ...DEFAULT_SERVICES_DATA[1],
+        videoSrc: videos.length > 0 ? videos[0] : DEFAULT_SERVICES_DATA[1].videoSrc,
+      }
+    ];
+  }, [initialMediaItems]);
+
+  useEffect(() => {
+    onInitialDataReady?.();
+  }, [onInitialDataReady]);
+
   // Carousel logic
   useEffect(() => {
-    const photoService = SERVICES_DATA.find(s => s.id === 'photo');
-    if (!photoService || !photoService.images) return;
+    const photoService = servicesData.find(s => s.id === 'photo');
+    if (!photoService || !photoService.images?.length) return;
 
     const interval = setInterval(() => {
       setPhotoIndex(prev => (prev + 1) % photoService.images!.length);
     }, 4000); // 4 seconds per image
     return () => clearInterval(interval);
-  }, []);
+  }, [servicesData]);
 
   // Mobile scroll auto-illuminate effect
   useEffect(() => {
@@ -90,8 +109,8 @@ export default function Services({ onSelectCategory }: ServicesProps) {
         </p>
       </div>
 
-      <div className="flex h-[100vh] md:h-[80vh] w-full flex-col md:flex-row">
-        {SERVICES_DATA.map((service, index) => (
+      <div className="flex h-[100vh] w-full flex-col md:flex-row">
+        {servicesData.map((service, index) => (
           <div
             key={service.id}
             ref={(el) => { mobileRefs.current[index] = el; }}
@@ -125,6 +144,7 @@ export default function Services({ onSelectCategory }: ServicesProps) {
                     src={img}
                     alt={`${service.id}-${i}`}
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className={`bg-media-item object-cover transition-all duration-1000 ease-out md:scale-105 md:group-hover:scale-100 ${i === photoIndex
                         ? 'is-active z-10 opacity-30 md:opacity-0 md:group-hover:opacity-60'
                         : 'z-0 opacity-0'

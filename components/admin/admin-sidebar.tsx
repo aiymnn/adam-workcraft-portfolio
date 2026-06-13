@@ -69,7 +69,7 @@ const MAIN_ITEMS: SidebarItem[] = [
       { id: 'vault', label: 'Personal Vault', href: '/admin/gallery/vault' },
       { id: 'reviews', label: 'Review Collection', href: '/admin/gallery/reviews' },
       { id: 'pending-reviews', label: 'Pending Reviews', href: '/admin/reviews/pending' },
-      { id: 'story-loop-images', label: 'Story Loop Images', href: '/admin/gallery/story-loop-images' },
+      { id: 'public-collection', label: 'Public Collection', href: '/admin/gallery/public-collection' },
     ],
   },
   {

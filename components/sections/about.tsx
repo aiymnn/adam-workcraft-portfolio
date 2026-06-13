@@ -6,7 +6,6 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import NumberFlow from '@number-flow/react';
 import { useLanguage } from '@/context/language-context';
-import { DEFAULT_STORY_LOOP_LOGOS } from '@/lib/story-loop-logos';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -17,66 +16,18 @@ const STATS = [
   { value: 86, key: 'clients' as const },
 ];
 
-const SERVICES = [
-  'Wedding Event',
-  'Engagement Event',
-  'Corporate Event',
-];
+import { fetchPublicCollection } from '@/lib/services/public-content';
 
-// Simple CSS Marquee Component
-function ToolStrip() {
-  // Duplicate logos a few times for seamless marquee
-  const items = [...DEFAULT_STORY_LOOP_LOGOS, ...DEFAULT_STORY_LOOP_LOGOS, ...DEFAULT_STORY_LOOP_LOGOS, ...DEFAULT_STORY_LOOP_LOGOS];
+// Removed hardcoded SERVICES array
 
-  const SIZES = [
-    'size-16 md:size-20',
-    'size-20 md:size-24',
-    'size-24 md:size-28',
-    'size-28 md:size-32',
-  ];
-
-  const COLUMNS = [
-    { animation: 'animate-[marquee-reverse_45s_linear_infinite]', extraClass: 'opacity-20 hidden lg:flex', sizesOffset: 0 },
-    { animation: 'animate-[marquee_40s_linear_infinite]', extraClass: 'opacity-50 hidden md:flex', sizesOffset: 1 },
-    { animation: 'animate-[marquee-reverse_50s_linear_infinite]', extraClass: 'opacity-100', sizesOffset: 2 },
-    { animation: 'animate-[marquee_45s_linear_infinite]', extraClass: 'opacity-100', sizesOffset: 3 },
-    { animation: 'animate-[marquee-reverse_40s_linear_infinite]', extraClass: 'opacity-100', sizesOffset: 1 },
-    { animation: 'animate-[marquee_50s_linear_infinite]', extraClass: 'opacity-50 hidden md:flex', sizesOffset: 2 },
-    { animation: 'animate-[marquee-reverse_45s_linear_infinite]', extraClass: 'opacity-20 hidden lg:flex', sizesOffset: 0 },
-  ];
-
-  return (
-    <div className="absolute inset-0 flex items-center justify-center opacity-40">
-      <div className="flex h-[200vh] w-[150vw] flex-row justify-center gap-6 md:gap-10" style={{ transform: 'rotate(30deg) scale(1.1)' }}>
-        {COLUMNS.map((col, colIdx) => (
-          <div key={colIdx} className={`flex flex-col gap-6 md:gap-10 ${col.animation} ${col.extraClass}`}>
-            {items.map((item, i) => {
-              // Semi-random size based on column and item index
-              const sizeClass = SIZES[(i * 3 + col.sizesOffset * 5) % SIZES.length];
-              return (
-                <div key={`col${colIdx}-${item.name}-${i}`} className={`relative shrink-0 overflow-hidden rounded-xl bg-stone-800/50 p-4 backdrop-blur-sm ${sizeClass}`}>
-                  <Image
-                    src={item.src}
-                    alt={item.name}
-                    fill
-                    className="object-contain p-4 opacity-50 grayscale transition-all duration-500 hover:opacity-100 hover:grayscale-0"
-                    sizes="128px"
-                  />
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+// Removed CSS Marquee Component
 
 interface AboutProps {
+  initialMediaItems: any[];
   onInitialDataReady?: () => void;
 }
 
-export default function About({ onInitialDataReady }: AboutProps) {
+export default function About({ initialMediaItems, onInitialDataReady }: AboutProps) {
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -84,7 +35,6 @@ export default function About({ onInitialDataReady }: AboutProps) {
   const [animated, setAnimated] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    // Instantly ready since we removed async fetching
     onInitialDataReady?.();
   }, [onInitialDataReady]);
 
@@ -128,27 +78,52 @@ export default function About({ onInitialDataReady }: AboutProps) {
     return () => ctx.revert();
   }, []);
 
+  // Pre-fill up to 5 items for the grid if missing
+  const displayItems = [...initialMediaItems];
+  while (displayItems.length < 5) {
+    displayItems.push({ id: `dummy-${displayItems.length}`, src: '/video-dummy.mp4', type: 'video' });
+  }
+
   return (
     <section
       id="about"
       ref={sectionRef}
-      className="relative overflow-hidden bg-gradient-to-b from-transparent via-[#1c1917]/80 to-transparent px-6 py-24 text-[var(--text)] md:px-12 md:py-48"
+      className="relative flex min-h-[100vh] items-center overflow-hidden bg-gradient-to-b from-transparent via-[#1c1917]/80 to-transparent px-6 py-24 text-[var(--text)] md:px-12 md:py-32"
     >
       <div
-        className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+        className="pointer-events-none absolute inset-0 overflow-hidden"
         style={{
-          WebkitMaskImage: 'radial-gradient(circle at center, black 0%, transparent 70%)',
-          maskImage: 'radial-gradient(circle at center, black 0%, transparent 70%)',
+          WebkitMaskImage: 'radial-gradient(circle at center, black 0%, transparent 80%)',
+          maskImage: 'radial-gradient(circle at center, black 0%, transparent 80%)',
         }}
       >
-        <ToolStrip />
+        {/* Video Collage Grid */}
+        <div className="absolute left-1/2 top-1/2 h-[150vh] w-[250vw] -translate-x-1/2 -translate-y-1/2 rotate-[-4deg] opacity-25 md:h-[150vh] md:w-[120vw] md:opacity-40">
+          <div className="grid h-full w-full grid-cols-2 grid-rows-3 gap-4 md:grid-cols-4 md:grid-rows-2 md:gap-8">
+            <div className="overflow-hidden rounded-2xl shadow-xl">
+              {displayItems[0].type === 'video' ? <video src={displayItems[0].src} autoPlay loop muted playsInline className="size-full object-cover" /> : <img src={displayItems[0].src} className="size-full object-cover" loading="lazy" decoding="async" alt="" />}
+            </div>
+            <div className="overflow-hidden rounded-2xl shadow-xl md:col-span-2">
+              {displayItems[1].type === 'video' ? <video src={displayItems[1].src} autoPlay loop muted playsInline className="size-full object-cover" /> : <img src={displayItems[1].src} className="size-full object-cover" loading="lazy" decoding="async" alt="" />}
+            </div>
+            <div className="col-span-2 overflow-hidden rounded-2xl shadow-xl md:col-span-1">
+              {displayItems[2].type === 'video' ? <video src={displayItems[2].src} autoPlay loop muted playsInline className="size-full object-cover" /> : <img src={displayItems[2].src} className="size-full object-cover" loading="lazy" decoding="async" alt="" />}
+            </div>
+            <div className="overflow-hidden rounded-2xl shadow-xl md:col-span-2">
+              {displayItems[3].type === 'video' ? <video src={displayItems[3].src} autoPlay loop muted playsInline className="size-full object-cover" /> : <img src={displayItems[3].src} className="size-full object-cover" loading="lazy" decoding="async" alt="" />}
+            </div>
+            <div className="overflow-hidden rounded-2xl shadow-xl md:col-span-2">
+              {displayItems[4].type === 'video' ? <video src={displayItems[4].src} autoPlay loop muted playsInline className="size-full object-cover" /> : <img src={displayItems[4].src} className="size-full object-cover" loading="lazy" decoding="async" alt="" />}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div ref={contentRef} className="relative z-10 mx-auto max-w-4xl space-y-8 md:space-y-12">
+      <div ref={contentRef} className="relative z-10 mx-auto w-full max-w-4xl space-y-4 md:space-y-6">
         <p className="text-sm font-medium tracking-[0.3em] uppercase text-amber-500/80">
           {t.about.label}
         </p>
-        <h2 className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+        <h2 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
           {t.about.heading.split('\n').map((line, i) => (
             <span key={i}>
               {line}
@@ -156,42 +131,42 @@ export default function About({ onInitialDataReady }: AboutProps) {
             </span>
           ))}
         </h2>
-        <p className="max-w-2xl text-lg leading-relaxed text-[var(--text-muted)] md:text-xl lg:text-2xl">
+        <p className="max-w-2xl text-base leading-relaxed text-[var(--text-muted)] md:text-lg lg:text-xl">
           {t.about.paragraph}
         </p>
 
-        <div className="grid grid-cols-2 gap-8 pt-8 md:grid-cols-4 md:pt-12">
+        <div className="grid grid-cols-2 gap-4 pt-4 md:grid-cols-4 md:pt-6">
           {STATS.map((stat, i) => (
             <div
               key={stat.key}
               ref={(el) => { statRefs.current[i] = el; }}
               data-idx={i}
             >
-              <div className="text-4xl font-bold tracking-tighter text-amber-200/90 md:text-5xl lg:text-6xl">
+              <div className="text-3xl font-bold tracking-tighter text-amber-200/90 md:text-4xl lg:text-5xl">
                 <NumberFlow
                   value={animated.has(i) ? stat.value : 0}
                   suffix="+"
                   transformTiming={{ duration: 1200, easing: 'ease-out' }}
                 />
               </div>
-              <p className="mt-2 text-xs font-medium uppercase tracking-wider text-[var(--text-dim)] md:text-sm">
+              <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-[var(--text-dim)] md:text-xs">
                 {t.about.stats[stat.key]}
               </p>
             </div>
           ))}
         </div>
 
-        <div className="pt-8 md:pt-16">
+        <div className="pt-4 md:pt-6">
           <p className="text-sm font-medium tracking-[0.3em] uppercase text-amber-500/80">
             {t.about.servicesLabel}
           </p>
           <div className="mt-6 flex flex-wrap gap-3 md:mt-8">
-            {SERVICES.map((s) => (
+            {t.about.servicesList?.map((service, index) => (
               <span
-                key={s}
+                key={index}
                 className="rounded-full border border-stone-800 bg-stone-900/50 px-5 py-2 text-sm font-medium text-[var(--text-muted)] backdrop-blur-sm transition-all duration-300 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-200"
               >
-                {s}
+                {service}
               </span>
             ))}
           </div>

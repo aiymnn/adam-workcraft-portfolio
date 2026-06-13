@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useLanguage } from '@/context/language-context';
@@ -89,7 +89,8 @@ function getLayoutClass(): string {
   return UNIFORM_LAYOUT_CLASS;
 }
 
-interface GalleryProps {
+export interface GalleryProps {
+  initialVaultCollections: any[];
   onOpenCollection: (collection: CollectionItem) => void;
   onInitialDataReady?: () => void;
 }
@@ -315,7 +316,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
           />
         </div>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0c0a09] via-[#0c0a09]/40 to-transparent opacity-80 transition-opacity duration-500 group-hover:opacity-100" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#000000] via-[#000000]/40 to-transparent opacity-80 transition-opacity duration-500 group-hover:opacity-100" />
 
       {/* Magnetic Cursor */}
       <div
@@ -338,11 +339,25 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
   );
 }
 
-export default function Gallery({ onOpenCollection, onInitialDataReady }: GalleryProps) {
+export default function Gallery({ initialVaultCollections, onOpenCollection, onInitialDataReady }: GalleryProps) {
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [collections, setCollections] = useState<CollectionItem[]>(COLLECTIONS);
+
+  const collections = useMemo(() => {
+    return initialVaultCollections.map((item) => ({
+      id: item.id,
+      title: item.title,
+      category: item.category,
+      thumb: item.thumb,
+      media: item.media,
+      isVideo: item.isVideo,
+      videos: item.videos,
+      columnSpan: item.columnSpan,
+      rowSpan: item.rowSpan,
+    }));
+  }, [initialVaultCollections]);
+
   const TABS = [
     { id: 'All', label: t.gallery.all || 'All Work' },
     { id: 'Photography', label: t.gallery.photography },
@@ -354,38 +369,7 @@ export default function Gallery({ onOpenCollection, onInitialDataReady }: Galler
   const isInitialLoad = useRef(true);
 
   useEffect(() => {
-    let active = true;
-
-    const loadCollections = async () => {
-      try {
-        const rows = await fetchPublicVaultCollections(8);
-        if (!active || rows.length === 0) return;
-
-        setCollections(
-          rows.map((item) => ({
-            id: item.id,
-            title: item.title,
-            category: item.category,
-            thumb: item.thumb,
-            media: item.media,
-            isVideo: item.isVideo,
-            videos: item.videos,
-            columnSpan: item.columnSpan,
-            rowSpan: item.rowSpan,
-          })),
-        );
-      } catch {
-      } finally {
-        if (active) {
-          onInitialDataReady?.();
-        }
-      }
-    };
-
-    void loadCollections();
-    return () => {
-      active = false;
-    };
+    onInitialDataReady?.();
   }, [onInitialDataReady]);
 
   useEffect(() => {
@@ -419,6 +403,8 @@ export default function Gallery({ onOpenCollection, onInitialDataReady }: Galler
       });
 
       const visibleItems = items.filter(el => el.style.display !== 'none');
+
+      if (visibleItems.length === 0) return;
 
       if (isInitialLoad.current) {
         gsap.fromTo(

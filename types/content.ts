@@ -21,6 +21,7 @@ export interface PublicReviewItem {
   quote: string;
   author: string;
   role: string;
+  isActive?: boolean;
   collection: PublicReviewMedia[];
 }
 
