@@ -4,15 +4,16 @@ import { getAdminSessionUsername } from '@/lib/server/admin-session';
 import { verifyAdminSessionToken } from '@/lib/server/admin-session';
 import type { PublicAdminProfile } from '@/types/content';
 
-function getRequestUsername(request: NextRequest): string | null {
+async function getRequestUsername(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('admin_session')?.value;
   const secret = process.env.AUTH_SECRET || '';
   if (!token || !secret) return null;
-  return getAdminSessionUsername(token) && verifyAdminSessionToken(token, secret) ? getAdminSessionUsername(token) : null;
+  const verified = await verifyAdminSessionToken(token, secret);
+  return verified ? getAdminSessionUsername(token) : null;
 }
 
 export async function GET(request: NextRequest) {
-  const username = getRequestUsername(request);
+  const username = await getRequestUsername(request);
   if (!username) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const username = getRequestUsername(request);
+  const username = await getRequestUsername(request);
   if (!username) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }

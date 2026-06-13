@@ -73,10 +73,10 @@ export async function PATCH(request: NextRequest) {
 
     await db.siteContent.upsert({
       where: { key: STORY_LOOP_IMAGES_SETTINGS_KEY },
-      update: { value: nextSettings },
+      update: { value: nextSettings as any },
       create: {
         key: STORY_LOOP_IMAGES_SETTINGS_KEY,
-        value: nextSettings,
+        value: nextSettings as any,
       },
     });
 

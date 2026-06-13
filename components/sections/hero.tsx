@@ -96,50 +96,15 @@ export default function Hero({ profile }: HeroProps) {
     <section
       id="hero"
       ref={containerRef}
-      className="relative z-10 min-h-screen overflow-hidden bg-black/40 px-6 py-24 text-[var(--text)] md:px-12 md:py-0"
+      className="relative z-10 min-h-screen overflow-hidden bg-black/40 bg-mesh px-6 py-20 text-[var(--text)] md:px-12 md:py-0"
     >
-      <div className="absolute inset-0 -z-10 h-[150vh] w-[150vw] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/40 via-stone-950/80 to-transparent blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#0c0a09]/50 to-[#0c0a09]" />
 
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col-reverse items-center gap-8 md:gap-12 md:flex-row">
-        <div className="flex-1">
-          <p className="mb-4 text-xs tracking-[0.3em] uppercase text-amber-200/60 md:text-sm">
-            {t.hero.name}
-          </p>
-          <h1
-            ref={titleRef}
-            className="space-y-2 text-4xl font-bold leading-tight tracking-tighter sm:text-5xl md:text-7xl lg:text-9xl"
-          >
-            <span className="block">{t.hero.title1}</span>
-            <span className="block bg-gradient-to-r from-amber-200 via-amber-100 to-stone-300 bg-clip-text text-transparent">
-              {t.hero.title2}
-            </span>
-          </h1>
-          <p
-            ref={subtitleRef}
-            className="mt-6 max-w-xl text-base leading-relaxed text-[var(--text-muted)] md:text-lg lg:text-xl"
-          >
-            {t.hero.subtitle}
-          </p>
-          <div ref={ctaRef} className="mt-8 flex flex-wrap gap-4 md:mt-10">
-            <a
-              href="#gallery"
-              className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[var(--button-hover)] bg-[var(--button)] px-8 py-4 text-sm font-medium text-amber-200/90 hover:border-amber-700/50 hover:bg-[var(--button-hover)] md:px-10 md:py-4 md:text-base"
-            >
-              {t.hero.viewWork}
-              <span className="text-amber-200/60">&rarr;</span>
-            </a>
-            <a
-              href="#connect"
-              className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[var(--border)] px-8 py-4 text-sm font-medium text-[var(--text-muted)] hover:border-[var(--button-hover)] hover:text-[var(--text)] md:px-10 md:py-4 md:text-base"
-            >
-              {t.hero.getInTouch}
-            </a>
-          </div>
-        </div>
-
-        <div ref={imageRef} className="flex flex-1 items-center justify-center">
-          <div className="relative size-64 md:size-80">
-            <div ref={spinRef} className="pointer-events-none absolute -inset-5 max-md:-inset-3" style={{ willChange: 'transform' }}>
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col items-center justify-center gap-10 md:flex-row md:gap-12">
+        {/* Image — top on mobile, right on desktop */}
+        <div ref={imageRef} className="flex items-center justify-center md:order-2 md:flex-1">
+          <div className="relative size-52 sm:size-64 md:size-80">
+            <div ref={spinRef} className="pointer-events-none absolute -inset-4 md:-inset-5" style={{ willChange: 'transform' }}>
               <svg viewBox="0 0 120 120" className="size-full">
                 <circle cx="60" cy="60" r="57" fill="none" stroke="var(--text-muted)" strokeWidth="1" pathLength="100" strokeDasharray="5 2.5 2.5 2.5" />
               </svg>
@@ -149,10 +114,47 @@ export default function Hero({ profile }: HeroProps) {
               alt={profile.name || t.hero.name}
               fill
               priority
-              sizes="(max-width: 768px) 256px, 320px"
+              sizes="(max-width: 640px) 208px, (max-width: 768px) 256px, 320px"
               className="size-full rounded-full object-cover"
             />
             <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-[#0c0a09] via-[#0c0a09]/70 via-35% to-transparent" />
+          </div>
+        </div>
+
+        {/* Text content — bottom on mobile, left on desktop */}
+        <div className="flex-1 text-center md:order-1 md:text-left">
+          <p className="mb-3 text-xs tracking-[0.3em] uppercase text-amber-200/60 md:mb-4 md:text-sm">
+            {t.hero.name}
+          </p>
+          <h1
+            ref={titleRef}
+            className="space-y-1 text-[clamp(2.5rem,10vw,6rem)] font-bold leading-[1.1] tracking-tighter md:text-7xl lg:text-9xl"
+          >
+            <span className="block">{t.hero.title1}</span>
+            <span className="block bg-gradient-to-r from-amber-200 via-amber-100 to-stone-300 bg-clip-text text-transparent">
+              {t.hero.title2}
+            </span>
+          </h1>
+          <p
+            ref={subtitleRef}
+            className="mt-5 max-w-xl text-sm leading-relaxed text-[var(--text-muted)] sm:text-base md:mt-6 md:text-lg lg:text-xl"
+          >
+            {t.hero.subtitle}
+          </p>
+          <div ref={ctaRef} className="mt-7 flex flex-wrap justify-center gap-3 md:mt-10 md:justify-start">
+            <a
+              href="#gallery"
+              className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[var(--button-hover)] bg-[var(--button)] px-7 py-3.5 text-sm font-medium text-amber-200/90 hover:border-amber-700/50 hover:bg-[var(--button-hover)] md:px-10 md:py-4 md:text-base"
+            >
+              {t.hero.viewWork}
+              <span className="text-amber-200/60">&rarr;</span>
+            </a>
+            <a
+              href="#connect"
+              className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[var(--border)] px-7 py-3.5 text-sm font-medium text-[var(--text-muted)] hover:border-[var(--button-hover)] hover:text-[var(--text)] md:px-10 md:py-4 md:text-base"
+            >
+              {t.hero.getInTouch}
+            </a>
           </div>
         </div>
       </div>

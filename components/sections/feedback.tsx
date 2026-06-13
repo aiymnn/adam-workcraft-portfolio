@@ -285,7 +285,7 @@ export default function Feedback({ onInitialDataReady }: FeedbackProps) {
           {reviews.map((item, i) => (
             <div
               key={i}
-              className="feedback-card group relative flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-stone-900/40 p-6 md:p-8"
+              className="feedback-card group relative flex flex-col justify-between rounded-3xl border border-white/5 bg-white/[0.02] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-md transition-colors hover:border-amber-500/20 hover:bg-white/[0.04] md:p-10"
               style={{ touchAction: 'manipulation' }}
             >
               <p className="text-sm leading-relaxed text-[var(--text-muted)] md:text-base">
@@ -316,7 +316,7 @@ export default function Feedback({ onInitialDataReady }: FeedbackProps) {
         <div className="mt-12 text-center md:mt-16">
           <button
             onClick={() => setReviewModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--button-hover)] bg-[var(--button)] px-8 py-3 text-sm font-medium text-amber-200/90 transition-colors hover:border-amber-700/50 hover:bg-[var(--button-hover)] md:px-10 md:py-3.5"
+            className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-8 py-3 text-sm font-medium text-amber-200/90 shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all hover:border-amber-500/60 hover:bg-amber-500/20 hover:shadow-[0_0_30px_rgba(245,158,11,0.2)] md:px-10 md:py-3.5"
           >
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

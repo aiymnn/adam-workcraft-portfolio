@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { BRAND_ICON_MIME_TYPE, BRAND_ICON_PATH, BRAND_NAME } from '@/lib/branding';
+import Script from 'next/script';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,8 +37,10 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
-        <script
+      <body className="min-h-full flex flex-col overflow-x-hidden">
+        <Script
+          id="theme-detect"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('admin_theme');if(t)document.documentElement.classList.add('admin-theme-'+t)}catch(e){}})()`
           }}

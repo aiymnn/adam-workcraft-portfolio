@@ -132,7 +132,7 @@ export default function Contact({ contactEmail, onInitialDataReady }: ContactPro
                 value={form.name}
                 onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
                 placeholder={t.contact.namePlaceholder}
-                className="w-full border-b border-[var(--border)] bg-transparent py-3 min-h-[44px] text-sm text-[var(--text)] placeholder-stone-600 outline-none transition-colors focus:border-amber-700/50"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 min-h-[44px] text-sm text-[var(--text)] placeholder-stone-500 backdrop-blur-sm transition-all focus:border-amber-500/50 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
               />
             </div>
             <div>
@@ -145,7 +145,7 @@ export default function Contact({ contactEmail, onInitialDataReady }: ContactPro
                 value={form.email}
                 onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
                 placeholder={t.contact.emailPlaceholder}
-                className="w-full border-b border-[var(--border)] bg-transparent py-3 min-h-[44px] text-sm text-[var(--text)] placeholder-stone-600 outline-none transition-colors focus:border-amber-700/50"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 min-h-[44px] text-sm text-[var(--text)] placeholder-stone-500 backdrop-blur-sm transition-all focus:border-amber-500/50 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
               />
             </div>
             <div>
@@ -158,7 +158,7 @@ export default function Contact({ contactEmail, onInitialDataReady }: ContactPro
                 value={form.message}
                 onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}
                 placeholder={t.contact.messagePlaceholder}
-                className="w-full resize-none border-b border-[var(--border)] bg-transparent py-3 text-sm text-[var(--text)] placeholder-stone-600 outline-none transition-colors focus:border-amber-700/50"
+                className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[var(--text)] placeholder-stone-500 backdrop-blur-sm transition-all focus:border-amber-500/50 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
               />
             </div>
             <div className="absolute -left-[9999px] top-auto h-0 w-0 overflow-hidden" aria-hidden="true">
@@ -175,7 +175,7 @@ export default function Contact({ contactEmail, onInitialDataReady }: ContactPro
             <MagneticButton
               type="submit"
               disabled={submitting}
-              className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[var(--button-hover)] bg-[var(--button)] px-8 py-3 text-sm font-medium text-amber-200/90 transition-colors hover:border-amber-700/50 hover:bg-[var(--button-hover)] md:px-10 md:py-4 md:text-base"
+              className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-amber-500/30 bg-amber-500/10 px-8 py-3 text-sm font-medium text-amber-200/90 shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all hover:border-amber-500/60 hover:bg-amber-500/20 hover:shadow-[0_0_30px_rgba(245,158,11,0.2)] md:px-10 md:py-4 md:text-base"
             >
               {submitting ? 'Sending...' : t.contact.sendMessage}
               <span className="text-amber-200/60">&rarr;</span>

@@ -6,6 +6,8 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Navbar from '@/components/layout/navbar';
 import Hero from '@/components/sections/hero';
 import About from '@/components/sections/about';
+import Process from '@/components/sections/process';
+import Services from '@/components/sections/services';
 import Gallery from '@/components/sections/gallery';
 import type { CollectionItem } from '@/components/sections/gallery';
 import LightboxModal from '@/components/ui/lightbox-modal';
@@ -26,6 +28,7 @@ export default function Home() {
   const visitTrackedRef = useRef(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [activeCollection, setActiveCollection] = useState<CollectionItem | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string>('All');
   const [publicProfile, setPublicProfile] = useState<PublicAdminProfile>(DEFAULT_PROFILE);
   const [pendingDataSections, setPendingDataSections] = useState<Set<LandingDataSection>>(
     () => new Set(REQUIRED_DATA_SECTIONS),
@@ -104,44 +107,6 @@ export default function Home() {
     visitTrackedRef.current = true;
   }, []);
 
-  useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    const ctx = gsap.context(() => {
-      const sections = document.querySelectorAll('section[id]');
-
-      if (prefersReducedMotion) {
-        sections.forEach((section) => {
-          (section as HTMLElement).style.opacity = '1';
-          (section as HTMLElement).style.willChange = 'auto';
-        });
-        return;
-      }
-
-      sections.forEach((section) => {
-        (section as HTMLElement).style.willChange = 'opacity';
-        gsap.fromTo(
-          section,
-          { opacity: 0.45 },
-          {
-            opacity: 1,
-            duration: 0.7,
-            ease: 'power2.out',
-            onComplete: () => {
-              (section as HTMLElement).style.willChange = 'auto';
-            },
-            scrollTrigger: {
-              trigger: section,
-              start: 'top 88%',
-              toggleActions: 'play none none none',
-            },
-          },
-        );
-      });
-    }, mainRef);
-
-    return () => ctx.revert();
-  }, []);
 
   const loadedCount = REQUIRED_DATA_SECTIONS.length - pendingDataSections.size;
   const isLandingLoading = !minimumLoaderElapsed || pendingDataSections.size > 0;
@@ -157,8 +122,12 @@ export default function Home() {
         <Navbar />
         <Hero profile={publicProfile} />
         <About onInitialDataReady={() => handleSectionDataReady('about')} />
+        <Services onSelectCategory={setActiveCategory} />
+        <Process />
         <div id="gallery">
           <Gallery
+            activeCategory={activeCategory}
+            onSelectCategory={setActiveCategory}
             onOpenCollection={handleOpenCollection}
             onInitialDataReady={() => handleSectionDataReady('gallery')}
           />
