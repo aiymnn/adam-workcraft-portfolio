@@ -72,9 +72,10 @@ export async function getServerPublicVaults(limit = 6): Promise<PublicVaultColle
   }
 }
 
-export async function getServerPublicReviews(limit = 6): Promise<PublicReviewItem[]> {
+export async function getServerPublicReviews(limit = 3): Promise<PublicReviewItem[]> {
   try {
     const rows = await db.review.findMany({
+      where: { isActive: true },
       orderBy: { createdAt: 'desc' },
       take: limit,
       include: {

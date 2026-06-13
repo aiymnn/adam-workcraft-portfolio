@@ -214,6 +214,8 @@ export default function Feedback({ initialReviews, onInitialDataReady }: Feedbac
   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews.length > 0 ? initialReviews : REVIEWS);
   const [lightbox, setLightbox] = useState<{ items: ReviewMedia[]; index: number } | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(initialReviews.length >= 3);
 
   useEffect(() => {
     onInitialDataReady?.();
@@ -244,6 +246,39 @@ export default function Feedback({ initialReviews, onInitialDataReady }: Feedbac
     }, sectionRef);
     return () => ctx.revert();
   }, []);
+
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const skip = reviews.length;
+      const res = await fetch(`/api/public/reviews?skip=${skip}&take=3`);
+      const data = await res.json();
+      if (data.success && data.reviews.length > 0) {
+        setReviews(prev => [...prev, ...data.reviews]);
+        setHasMore(data.hasMore);
+        
+        // GSAP animate new cards
+        requestAnimationFrame(() => {
+          const allCards = sectionRef.current?.querySelectorAll('.feedback-card');
+          if (allCards) {
+            const newCards = Array.from(allCards).slice(skip);
+            gsap.fromTo(
+              newCards,
+              { y: 60, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.6, stagger: 0.1, ease: 'power3.out' }
+            );
+          }
+        });
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('Failed to load more reviews', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   return (
     <section
@@ -288,7 +323,29 @@ export default function Feedback({ initialReviews, onInitialDataReady }: Feedbac
           ))}
         </div>
 
-        <div className="mt-12 text-center md:mt-16">
+        <div className="mt-12 text-center md:mt-16 flex flex-col items-center gap-6">
+          {hasMore && (
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-mid)]/40 px-8 py-3 text-sm font-medium text-[var(--text-muted)] transition-all hover:border-[var(--button-hover)] hover:bg-[var(--button)] hover:text-[var(--text)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingMore ? (
+                <svg className="size-4 animate-spin text-[var(--text-dim)]" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              )}
+              {loadingMore ? 'Loading...' : 'View More Experiences'}
+            </button>
+          )}
+
+          <div className="h-px w-16 bg-[var(--border)] mx-auto" />
+
           <button
             onClick={() => setReviewModalOpen(true)}
             className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-8 py-3 text-sm font-medium text-amber-200/90 shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all hover:border-amber-500/60 hover:bg-amber-500/20 hover:shadow-[0_0_30px_rgba(245,158,11,0.2)] md:px-10 md:py-3.5"

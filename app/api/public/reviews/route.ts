@@ -26,11 +26,14 @@ function mapReview(row: {
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const requestedLimit = Number.parseInt((url.searchParams.get('limit') || '').trim(), 10);
+  const skip = Number.parseInt((url.searchParams.get('skip') || '0').trim(), 10);
   const take = Number.isFinite(requestedLimit)
     ? Math.max(1, Math.min(MAX_LIMIT, requestedLimit))
     : DEFAULT_LIMIT;
+  const validSkip = Number.isFinite(skip) ? Math.max(0, skip) : 0;
 
   const rows = await db.review.findMany({
+    where: { isActive: true },
     include: {
       media: {
         orderBy: { sortOrder: 'asc' },
@@ -38,6 +41,7 @@ export async function GET(request: NextRequest) {
     },
     orderBy: { createdAt: 'desc' },
     take,
+    skip: validSkip,
   });
 
   return NextResponse.json(

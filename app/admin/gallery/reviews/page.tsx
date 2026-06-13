@@ -797,6 +797,23 @@ export default function ReviewCollectionPage() {
     }
   }, [reviews, toast]);
 
+  const handleToggleVisibility = useCallback(async (id: string, currentIsActive: boolean) => {
+    try {
+      const res = await fetch(`/api/admin/reviews/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentIsActive }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Failed to update visibility');
+      
+      setReviews((prev) => prev.map((r) => r.id === id ? { ...r, isActive: !currentIsActive } : r));
+      toast.success(!currentIsActive ? 'Review published to landing page' : 'Review hidden from landing page');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update visibility');
+    }
+  }, [toast]);
+
   const handlePreview = useCallback(async (review: PublicReviewItem) => {
     if (review.collection.length === 0) return;
 
@@ -933,6 +950,7 @@ export default function ReviewCollectionPage() {
                         <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--text-dim)]">Author</th>
                         <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--text-dim)]">Review</th>
                         <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--text-dim)]">Attachments</th>
+                        <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--text-dim)]">Visibility</th>
                         <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--text-dim)]">Actions</th>
                       </tr>
                     </thead>
@@ -975,6 +993,21 @@ export default function ReviewCollectionPage() {
                             ) : (
                               <span className="text-xs text-[var(--text-dim)]">&mdash;</span>
                             )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => handleToggleVisibility(review.id, review.isActive || false)}
+                              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none ${
+                                review.isActive ? 'bg-amber-500' : 'bg-stone-700'
+                              }`}
+                              title={review.isActive ? 'Visible on public page' : 'Hidden from public page'}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                  review.isActive ? 'translate-x-4' : 'translate-x-0.5'
+                                }`}
+                              />
+                            </button>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1">
@@ -1056,6 +1089,19 @@ export default function ReviewCollectionPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleToggleVisibility(review.id, review.isActive || false)}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none ${
+                              review.isActive ? 'bg-amber-500' : 'bg-stone-700'
+                            }`}
+                            title={review.isActive ? 'Visible on public page' : 'Hidden from public page'}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                review.isActive ? 'translate-x-4' : 'translate-x-0.5'
+                              }`}
+                            />
+                          </button>
                           {review.collection.length > 0 && (
                             <button
                               onClick={() => handlePreview(review)}

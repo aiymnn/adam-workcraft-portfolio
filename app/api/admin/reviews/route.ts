@@ -58,6 +58,7 @@ function mapReview(row: {
   quote: string;
   author: string;
   role: string | null;
+  isActive: boolean;
   media: Array<{ src: string; type: 'image' | 'video'; sortOrder: number }>;
 }): PublicReviewItem {
   return {
@@ -65,6 +66,7 @@ function mapReview(row: {
     quote: row.quote,
     author: row.author,
     role: row.role || '',
+    isActive: row.isActive,
     collection: [...row.media]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((m) => ({ src: m.src, type: m.type })),

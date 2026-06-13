@@ -9,6 +9,7 @@ interface ReviewUpdatePayload {
   quote?: string;
   author?: string;
   role?: string;
+  isActive?: boolean;
   collection?: Array<{ src?: string; type?: 'image' | 'video' }>;
 }
 
@@ -102,6 +103,7 @@ export async function PATCH(
     const author = body.author !== undefined ? normalizeText(body.author) : undefined;
     const role = body.role !== undefined ? normalizeText(body.role) : undefined;
     const normalizedCollection = body.collection !== undefined ? normalizeCollection(body.collection) : null;
+    const isActive = body.isActive;
 
     if (quote !== undefined && !quote) {
       return NextResponse.json({ success: false, message: 'Review cannot be empty' }, { status: 400 });
@@ -135,6 +137,7 @@ export async function PATCH(
       if (quote !== undefined) updates.quote = quote;
       if (author !== undefined) updates.author = author;
       if (role !== undefined) updates.role = role || null;
+      if (isActive !== undefined) updates.isActive = isActive;
 
       if (Object.keys(updates).length > 0) {
         await tx.review.update({ where: { id }, data: updates });
@@ -161,8 +164,9 @@ export async function PATCH(
         media: updated.media.map((m) => ({ src: m.src, type: m.type as 'image' | 'video', sortOrder: m.sortOrder })),
       }),
     });
-  } catch {
-    return NextResponse.json({ success: false, message: 'Invalid request' }, { status: 400 });
+  } catch (error) {
+    console.error('PATCH review error:', error);
+    return NextResponse.json({ success: false, message: 'Invalid request', error: String(error) }, { status: 400 });
   }
 }
 
