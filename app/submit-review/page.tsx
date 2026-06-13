@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -13,17 +13,18 @@ interface BookingInfo {
   service: string;
 }
 
-interface MediaItem {
-  src: string;
+interface PendingMedia {
+  id: string;
+  file: File;
+  previewUrl: string;
   type: 'image' | 'video';
 }
 
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
-function detectMediaType(src: string): 'image' | 'video' {
-  const ext = src.split('?')[0].toLowerCase();
-  if (ext.endsWith('.mp4') || ext.endsWith('.webm') || ext.endsWith('.mov') || ext.includes('/video-')) return 'video';
+function detectMediaType(file: File): 'image' | 'video' {
+  if (file.type.startsWith('video/')) return 'video';
   return 'image';
 }
 
@@ -39,17 +40,10 @@ async function verifyCodeApi(code: string): Promise<{ success: boolean; message?
   return res.json() as Promise<{ success: boolean; message?: string; booking?: BookingInfo }>;
 }
 
-async function submitReviewApi(payload: {
-  code: string;
-  author: string;
-  role: string;
-  quote: string;
-  collection: MediaItem[];
-}): Promise<{ success: boolean; message?: string }> {
+async function submitReviewApi(formData: FormData): Promise<{ success: boolean; message?: string }> {
   const res = await fetch('/api/public/reviews/submit', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: formData,
   });
   return res.json() as Promise<{ success: boolean; message?: string }>;
 }
@@ -99,6 +93,34 @@ function InputField({
   );
 }
 
+function PublicMediaDropzone({
+  title, hint, onDrop, onClick, className = ''
+}: { title: string, hint: string, onDrop: (e: React.DragEvent<HTMLDivElement>) => void, onClick: () => void, className?: string }) {
+  const [isActive, setIsActive] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onDragOver={(e) => { e.preventDefault(); setIsActive(true); }}
+      onDragEnter={(e) => { e.preventDefault(); setIsActive(true); }}
+      onDragLeave={() => setIsActive(false)}
+      onDrop={(e) => { e.preventDefault(); setIsActive(false); onDrop(e); }}
+      className={`rounded-2xl border border-dashed px-6 py-6 text-center transition-all cursor-pointer ${
+        isActive 
+          ? 'border-amber-500/80 bg-amber-900/20 text-amber-100' 
+          : 'border-stone-700 bg-stone-900/40 text-stone-500 hover:border-amber-700/50 hover:bg-stone-800/60'
+      } ${className}`}
+    >
+      <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-xl border border-stone-800 bg-stone-900 shadow-inner">
+        <svg className="size-4 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+        </svg>
+      </div>
+      <p className="text-sm font-semibold text-stone-200">{title}</p>
+      <p className="mt-1 text-xs text-stone-500">{hint}</p>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
@@ -122,9 +144,19 @@ function SubmitReviewContent() {
   const [author, setAuthor] = useState('');
   const [role, setRole] = useState('');
   const [quote, setQuote] = useState('');
-  const [media, setMedia] = useState<string[]>(['']);
+  
+  const [mediaFiles, setMediaFiles] = useState<PendingMedia[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+
+  // Cleanup object URLs to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      mediaFiles.forEach((m) => URL.revokeObjectURL(m.previewUrl));
+    };
+  }, [mediaFiles]);
 
   // Auto-verify if code is in the URL query param
   useEffect(() => {
@@ -166,16 +198,46 @@ function SubmitReviewContent() {
     void verifyCode(trimmed);
   }, [code, verifyCode]);
 
-  const addMediaInput = useCallback(() => {
-    if (media.length < 3) setMedia((prev) => [...prev, '']);
-  }, [media.length]);
-
-  const updateMedia = useCallback((index: number, value: string) => {
-    setMedia((prev) => { const next = [...prev]; next[index] = value; return next; });
+  const processFiles = useCallback((files: File[]) => {
+    const validFiles = files.filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
+    if (validFiles.length < files.length) {
+      setSubmitError('Some files were ignored because they are not images or videos.');
+    }
+    
+    setMediaFiles(prev => {
+      const newMedia = validFiles.map(file => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        type: detectMediaType(file)
+      }));
+      // Limit to 5 files maximum for public submission to prevent abuse
+      const combined = [...prev, ...newMedia].slice(0, 5);
+      return combined;
+    });
   }, []);
 
-  const removeMedia = useCallback((index: number) => {
-    setMedia((prev) => prev.filter((_, i) => i !== index));
+  const handleDropMedia = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(Array.from(e.dataTransfer.files));
+    }
+  }, [processFiles]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFiles(Array.from(e.target.files));
+    }
+    // reset input so the same file can be selected again if removed
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [processFiles]);
+
+  const removeMedia = useCallback((id: string) => {
+    setMediaFiles((prev) => {
+      const item = prev.find(m => m.id === id);
+      if (item) URL.revokeObjectURL(item.previewUrl);
+      return prev.filter(m => m.id !== id);
+    });
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -183,19 +245,18 @@ function SubmitReviewContent() {
     setSubmitting(true);
     setSubmitError('');
 
-    const collection: MediaItem[] = media
-      .map((src) => src.trim())
-      .filter(Boolean)
-      .map((src) => ({ src, type: detectMediaType(src) }));
-
     try {
-      const result = await submitReviewApi({
-        code: code.trim().toUpperCase(),
-        author: author.trim(),
-        role: role.trim(),
-        quote: quote.trim(),
-        collection,
+      const formData = new FormData();
+      formData.append('code', code.trim().toUpperCase());
+      formData.append('author', author.trim());
+      formData.append('role', role.trim());
+      formData.append('quote', quote.trim());
+      
+      mediaFiles.forEach((m, index) => {
+        formData.append(`file_${index}`, m.file);
       });
+
+      const result = await submitReviewApi(formData);
 
       if (!result.success) {
         setSubmitError(result.message || 'Failed to submit review. Please try again.');
@@ -207,7 +268,7 @@ function SubmitReviewContent() {
     } finally {
       setSubmitting(false);
     }
-  }, [quote, booking, code, media, author, role]);
+  }, [quote, booking, code, mediaFiles, author, role]);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#0c0a09]">
@@ -308,52 +369,54 @@ function SubmitReviewContent() {
                 <div>
                   <div className="mb-2 flex items-center justify-between">
                     <label className="text-xs font-semibold tracking-wide uppercase text-stone-500">Photos / Videos (optional)</label>
-                    <span className="text-[10px] text-stone-600">{media.filter(Boolean).length} / 3</span>
+                    <span className="text-[10px] text-stone-600">{mediaFiles.length} / 5</span>
                   </div>
-                  <div className="space-y-2">
-                    {media.map((url, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <input
-                          value={url}
-                          onChange={(e) => updateMedia(i, e.target.value)}
-                          className="min-w-0 flex-1 rounded-xl border border-stone-800 bg-stone-900/60 px-4 py-2.5 text-xs text-stone-100 outline-none transition-all placeholder:text-stone-600 focus:border-amber-600/50 focus:ring-2 focus:ring-amber-600/20"
-                          placeholder="https://example.com/photo.jpg"
-                        />
-                        {url.trim() && (
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,video/*"
+                    onChange={handleFileInput}
+                    className="hidden"
+                  />
+
+                  {mediaFiles.length < 5 && (
+                    <PublicMediaDropzone 
+                      title="Upload files from your device"
+                      hint="Drag and drop or click here (Max 5 files)"
+                      onClick={() => fileInputRef.current?.click()}
+                      onDrop={handleDropMedia}
+                    />
+                  )}
+
+                  {mediaFiles.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {mediaFiles.map((m) => (
+                        <div key={m.id} className="group relative aspect-square overflow-hidden rounded-xl border border-stone-800 bg-black">
+                          {m.type === 'video' ? (
+                            <video src={m.previewUrl} className="size-full object-cover" muted />
+                          ) : (
+                            <img src={m.previewUrl} className="size-full object-cover" alt="" />
+                          )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100" />
                           <button
-                            onClick={() => window.open(url.trim(), '_blank')}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-800 hover:text-stone-200"
-                            title="Preview"
-                          >
-                            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                            </svg>
-                          </button>
-                        )}
-                        {media.length > 1 && (
-                          <button
-                            onClick={() => removeMedia(i)}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-stone-600 transition-colors hover:bg-red-950/50 hover:text-red-400"
-                            title="Remove"
+                            onClick={() => removeMedia(m.id)}
+                            className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-lg bg-black/60 text-stone-300 opacity-0 backdrop-blur-md transition-all hover:bg-red-900/80 hover:text-red-300 group-hover:opacity-100"
+                            title="Remove file"
                           >
                             <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {media.length < 3 && (
-                    <button
-                      onClick={addMediaInput}
-                      className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-stone-800 bg-stone-900/30 px-3 py-2.5 text-xs font-medium text-stone-600 transition-colors hover:border-amber-700/40 hover:text-amber-400"
-                    >
-                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                      </svg>
-                      Add Photo / Video URL
-                    </button>
+                          {m.type === 'video' && (
+                            <div className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-stone-300 backdrop-blur-md">
+                              VIDEO
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 
@@ -372,9 +435,20 @@ function SubmitReviewContent() {
                 <button
                   onClick={handleSubmit}
                   disabled={!quote.trim() || submitting}
-                  className="flex-1 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-stone-950 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex-1 relative overflow-hidden rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-stone-950 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {submitting ? 'Submitting…' : 'Submit Review'}
+                  <span className={`transition-opacity ${submitting ? 'opacity-0' : 'opacity-100'}`}>
+                    Submit Review
+                  </span>
+                  {submitting && (
+                    <div className="absolute inset-0 flex items-center justify-center gap-2">
+                      <svg className="size-4 animate-spin text-stone-900" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Uploading...
+                    </div>
+                  )}
                 </button>
               </div>
             </div>
