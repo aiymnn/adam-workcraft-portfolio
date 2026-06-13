@@ -159,7 +159,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
         if (item.isVideo) {
           const el = activeRef.current === 'a' ? videoARef.current : videoBRef.current;
           if (entry.isIntersecting) {
-            el?.play().catch(() => {});
+            el?.play().catch(() => { });
           } else {
             el?.pause();
           }
@@ -202,7 +202,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
       gsap.set(videoARef.current, { opacity: 1 });
       gsap.set(videoBRef.current, { opacity: 0 });
       if (visibleRef.current) {
-        videoARef.current?.play().catch(() => {});
+        videoARef.current?.play().catch(() => { });
       }
     };
     init();
@@ -223,7 +223,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
       toEl.src = videoSources[nextIdx];
       toEl.load();
       toEl.currentTime = 0;
-      toEl.play().catch(() => {});
+      toEl.play().catch(() => { });
 
       gsap.to(fromEl, { opacity: 0, duration: 0.5, ease: 'power2.inOut' });
       gsap.to(toEl, { opacity: 1, duration: 0.5, ease: 'power2.inOut' });
@@ -255,19 +255,19 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
-    
+
     if (xTo.current && yTo.current) {
       xTo.current(e.clientX - rect.left);
       yTo.current(e.clientY - rect.top);
     }
-    
+
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
     const rotateX = ((y - centerY) / centerY) * -10;
     const rotateY = ((x - centerX) / centerX) * 10;
-    
+
     gsap.to(cardRef.current, {
       rotateX,
       rotateY,
@@ -355,7 +355,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-[#0c0a09] via-[#0c0a09]/40 to-transparent opacity-80 transition-opacity duration-500 group-hover:opacity-100" />
-      
+
       {/* Magnetic Cursor */}
       <div
         ref={cursorRef}
@@ -430,12 +430,12 @@ export default function Gallery({ onOpenCollection, onInitialDataReady, activeCa
 
   useEffect(() => {
     if (activeCategory === displayCategory) return;
-    
+
     const ctx = gsap.context(() => {
       if (!containerRef.current) return;
       const items = Array.from(containerRef.current.children) as HTMLElement[];
       const visibleItems = items.filter(el => el.style.display !== 'none');
-      
+
       gsap.to(visibleItems, {
         opacity: 0,
         scale: 0.95,
@@ -452,7 +452,7 @@ export default function Gallery({ onOpenCollection, onInitialDataReady, activeCa
     const ctx = gsap.context(() => {
       if (!containerRef.current) return;
       const items = Array.from(containerRef.current.children) as HTMLElement[];
-      
+
       items.forEach(el => {
         const cat = el.getAttribute('data-category');
         el.style.display = (displayCategory === 'All' || cat === displayCategory) ? '' : 'none';
@@ -532,11 +532,10 @@ export default function Gallery({ onOpenCollection, onInitialDataReady, activeCa
               <button
                 key={tab.id}
                 onClick={() => onSelectCategory?.(tab.id)}
-                className={`whitespace-nowrap rounded-xl px-6 py-2.5 text-sm font-semibold transition-all duration-300 md:text-base ${
-                  activeCategory === tab.id
+                className={`whitespace-nowrap rounded-xl px-6 py-2.5 text-sm font-semibold transition-all duration-300 md:text-base ${activeCategory === tab.id
                     ? 'bg-amber-500 text-black shadow-md'
                     : 'text-stone-400 hover:text-white hover:bg-white/5'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -554,7 +553,8 @@ export default function Gallery({ onOpenCollection, onInitialDataReady, activeCa
           </span>
         </div>
 
-        <style dangerouslySetInnerHTML={{__html: `
+        <style dangerouslySetInnerHTML={{
+          __html: `
           .desktop-scrollbar::-webkit-scrollbar {
             height: 6px;
           }
@@ -579,8 +579,8 @@ export default function Gallery({ onOpenCollection, onInitialDataReady, activeCa
 
         <div ref={containerRef} className="desktop-scrollbar group/gallery flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-8 scroll-smooth">
           {collections.map((item) => (
-            <div 
-              key={item.id} 
+            <div
+              key={item.id}
               data-category={item.category}
               className="snap-start h-full shrink-0"
             >

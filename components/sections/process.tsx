@@ -70,7 +70,7 @@ export default function Process() {
     >
       <div className="mx-auto max-w-7xl relative">
         {/* Ambient Glowing Orb */}
-        <div className="ambient-orb pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/10 blur-[100px] md:h-[600px] md:w-[600px]" />
+        <div className="ambient-orb pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.12)_0%,transparent_60%)] md:h-[1000px] md:w-[1000px]" style={{ willChange: 'transform' }} />
 
         <div className="mb-16 md:mb-24">
           <p className="mb-4 text-sm font-medium tracking-[0.3em] uppercase text-amber-500/80">

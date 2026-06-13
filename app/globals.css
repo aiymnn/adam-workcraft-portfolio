@@ -134,6 +134,14 @@ body {
   scrollbar-width: none;
 }
 
-.scrollbar-hide::-webkit-scrollbar {
+/* Global Scrollbar Hiding */
+::-webkit-scrollbar {
   display: none;
+  width: 0;
+  height: 0;
+}
+
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
