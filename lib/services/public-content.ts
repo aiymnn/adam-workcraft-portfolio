@@ -74,12 +74,13 @@ export async function fetchPublicAdminProfile(): Promise<PublicAdminProfile> {
   }
 }
 
-export async function fetchPublicStoryLoopImages(): Promise<StoryLoopImagePublicItem[]> {
+export async function fetchPublicCollection(section?: string): Promise<any[]> {
   try {
-    const res = await fetch('/api/public/story-loop-logos', { method: 'GET', cache: 'no-store' });
+    const url = section ? `/api/public/public-collection?section=${section}` : '/api/public/public-collection';
+    const res = await fetch(url, { method: 'GET', cache: 'no-store' });
     if (!res.ok) return [];
-    const data = (await res.json()) as StoryLoopImageResponse;
-    return data.logos || [];
+    const data = await res.json();
+    return data.items || [];
   } catch {
     return [];
   }

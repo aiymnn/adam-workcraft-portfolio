@@ -204,44 +204,19 @@ function ReviewLightbox({ items, index, onClose, onIndexChange }: { items: Revie
 }
 
 interface FeedbackProps {
+  initialReviews: any[];
   onInitialDataReady?: () => void;
 }
 
-export default function Feedback({ onInitialDataReady }: FeedbackProps) {
+export default function Feedback({ initialReviews, onInitialDataReady }: FeedbackProps) {
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
-  const [reviews, setReviews] = useState<ReviewItem[]>(REVIEWS);
+  const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews.length > 0 ? initialReviews : REVIEWS);
   const [lightbox, setLightbox] = useState<{ items: ReviewMedia[]; index: number } | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
 
   useEffect(() => {
-    let active = true;
-
-    const loadReviews = async () => {
-      try {
-        const rows = await fetchPublicReviews(6);
-        if (!active || rows.length === 0) return;
-
-        setReviews(
-          rows.map((item) => ({
-            quote: item.quote,
-            author: item.author,
-            role: item.role,
-            collection: item.collection,
-          })),
-        );
-      } catch {
-      } finally {
-        if (active) {
-          onInitialDataReady?.();
-        }
-      }
-    };
-
-    void loadReviews();
-    return () => {
-      active = false;
-    };
+    onInitialDataReady?.();
   }, [onInitialDataReady]);
 
   useEffect(() => {

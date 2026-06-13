@@ -639,6 +639,7 @@ function EditReviewDialog({ open, item, saving, uploadProgress, uploadStage, onS
 export default function ReviewCollectionPage() {
   const router = useRouter();
   const isMobile = useMediaQuery('(max-width: 1023px)');
+  const [mounted, setMounted] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [reviews, setReviews] = useState<PublicReviewItem[]>([]);
@@ -662,6 +663,10 @@ export default function ReviewCollectionPage() {
     const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
     const random = Math.random().toString(36).slice(2, 7);
     return `review-${slug}-${type}-${stamp}-${random}.${ext}`;
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -832,6 +837,10 @@ export default function ReviewCollectionPage() {
       );
     });
   }, [reviews, searchQuery, mediaFilter]);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
