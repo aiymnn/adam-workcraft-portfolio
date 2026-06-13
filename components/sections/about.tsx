@@ -18,14 +18,9 @@ const STATS = [
 ];
 
 const SERVICES = [
-  'Wedding Photography',
-  'Event Videography',
-  'Corporate Shoot',
-  'Short Film',
-  'Image Tracing',
-  'Logo Design',
-  'Poster Design',
-  'Graphic Design',
+  'Wedding Event',
+  'Engagement Event',
+  'Corporate Event',
 ];
 
 // Simple CSS Marquee Component

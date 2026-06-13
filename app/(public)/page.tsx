@@ -28,7 +28,6 @@ export default function Home() {
   const visitTrackedRef = useRef(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [activeCollection, setActiveCollection] = useState<CollectionItem | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>('All');
   const [publicProfile, setPublicProfile] = useState<PublicAdminProfile>(DEFAULT_PROFILE);
   const [pendingDataSections, setPendingDataSections] = useState<Set<LandingDataSection>>(
     () => new Set(REQUIRED_DATA_SECTIONS),
@@ -122,12 +121,10 @@ export default function Home() {
         <Navbar />
         <Hero profile={publicProfile} />
         <About onInitialDataReady={() => handleSectionDataReady('about')} />
-        <Services onSelectCategory={setActiveCategory} />
+        <Services />
         <Process />
         <div id="gallery">
           <Gallery
-            activeCategory={activeCategory}
-            onSelectCategory={setActiveCategory}
             onOpenCollection={handleOpenCollection}
             onInitialDataReady={() => handleSectionDataReady('gallery')}
           />

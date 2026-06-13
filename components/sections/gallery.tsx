@@ -81,43 +81,6 @@ const COLLECTIONS: CollectionItem[] = [
       'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1200',
     ],
   },
-  {
-    id: 'graphic-1',
-    title: 'Brand Identity',
-    category: 'Graphic',
-    thumb: '/design1.jpg',
-    media: ['/design2.jpg', '/design3.jpg'],
-    columnSpan: 2,
-    rowSpan: 2,
-  },
-  {
-    id: 'graphic-2',
-    title: 'Poster Campaign',
-    category: 'Graphic',
-    thumb: '/design2.jpg',
-    media: ['/design3.jpg', '/design1.jpg'],
-  },
-  {
-    id: 'graphic-3',
-    title: 'Editorial Layout',
-    category: 'Graphic',
-    thumb: '/design3.jpg',
-    media: ['/design1.jpg', '/design2.jpg'],
-  },
-  {
-    id: 'graphic-4',
-    title: 'Packaging Design',
-    category: 'Graphic',
-    thumb: '/design1.jpg',
-    media: ['/design3.jpg', '/design2.jpg'],
-  },
-  {
-    id: 'graphic-5',
-    title: 'Social Media Assets',
-    category: 'Graphic',
-    thumb: '/design2.jpg',
-    media: ['/design1.jpg', '/design3.jpg'],
-  },
 ];
 
 const UNIFORM_LAYOUT_CLASS = 'shrink-0 h-[400px] md:h-[500px] lg:h-[600px] w-[85vw] md:w-[400px] lg:w-[450px]';
@@ -129,8 +92,6 @@ function getLayoutClass(): string {
 interface GalleryProps {
   onOpenCollection: (collection: CollectionItem) => void;
   onInitialDataReady?: () => void;
-  activeCategory?: string;
-  onSelectCategory?: (category: string) => void;
 }
 
 function GalleryCard({ item, onOpenCollection, layoutClass }: { item: CollectionItem; onOpenCollection: (c: CollectionItem) => void; layoutClass: string }) {
@@ -377,20 +338,19 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
   );
 }
 
-export default function Gallery({ onOpenCollection, onInitialDataReady, activeCategory = 'All', onSelectCategory }: GalleryProps) {
+export default function Gallery({ onOpenCollection, onInitialDataReady }: GalleryProps) {
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [collections, setCollections] = useState<CollectionItem[]>(COLLECTIONS);
-
   const TABS = [
     { id: 'All', label: t.gallery.all || 'All Work' },
     { id: 'Photography', label: t.gallery.photography },
     { id: 'Videography', label: t.gallery.videography },
-    { id: 'Graphic', label: t.gallery.graphic || 'Graphic' },
   ];
 
-  const [displayCategory, setDisplayCategory] = useState(activeCategory);
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [displayCategory, setDisplayCategory] = useState('All');
   const isInitialLoad = useRef(true);
 
   useEffect(() => {
@@ -527,15 +487,16 @@ export default function Gallery({ onOpenCollection, onInitialDataReady, activeCa
             </p>
           </div>
 
-          <div className="flex w-full overflow-x-auto rounded-2xl border border-white/5 bg-stone-900/50 p-2 scrollbar-hide md:w-auto">
+          <div className="flex w-full overflow-x-auto rounded-full border border-white/5 bg-stone-900/40 p-1.5 scrollbar-hide md:w-auto">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => onSelectCategory?.(tab.id)}
-                className={`whitespace-nowrap rounded-xl px-6 py-2.5 text-sm font-semibold transition-all duration-300 md:text-base ${activeCategory === tab.id
+                onClick={() => setActiveCategory(tab.id)}
+                className={`whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-300 md:text-sm ${
+                  activeCategory === tab.id
                     ? 'bg-amber-500 text-black shadow-md'
                     : 'text-stone-400 hover:text-white hover:bg-white/5'
-                  }`}
+                }`}
               >
                 {tab.label}
               </button>
