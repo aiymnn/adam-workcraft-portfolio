@@ -33,10 +33,10 @@ export default function LandingPageLoader({ isVisible, loadedCount, totalCount }
           </div>
         </div>
 
-        <div className="space-y-1.5">
+        {/* <div className="space-y-1.5">
           <p className="text-sm tracking-[0.22em] uppercase text-amber-200/75">Preparing Experience</p>
           <p className="text-xs text-stone-400">Loading data {progressText}</p>
-        </div>
+        </div> */}
       </div>
     </div>
   );

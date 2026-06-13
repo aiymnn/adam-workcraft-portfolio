@@ -1,31 +1,10 @@
+// Re-export shared Booking type from the central types folder
+export type { Booking } from '@/types/booking';
+export type { BookingFormData as FormData } from '@/types/booking';
+
 import { SERVICES, STATUS_STYLES, STATUS_HOVER, STATUS_LABELS } from '@/lib/constants';
 
-export interface Booking {
-  id: string;
-  date: string;
-  time: string;
-  name: string;
-  email: string;
-  phone: string;
-  service: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
-  notes: string;
-  reviewCode: string;
-  reviewSubmitted: boolean;
-}
-
-export interface FormData {
-  name: string;
-  email: string;
-  phone: string;
-  service: string;
-  time: string;
-  notes: string;
-  date?: string;
-  status?: Booking['status'];
-}
-
-export const EMPTY_FORM: FormData = {
+export const EMPTY_FORM = {
   name: '',
   email: '',
   phone: '',
