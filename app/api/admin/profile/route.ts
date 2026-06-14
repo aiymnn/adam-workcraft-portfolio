@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       fullName: true,
       email: true,
       avatarUrl: true,
+      isVerified: true,
     },
   });
 
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
     name: admin?.fullName || 'Adam Workcraft',
     email: admin?.email || 'hello@adamworkcraft.com',
     avatarUrl: admin?.avatarUrl || '/person-2.png',
+    isVerified: admin?.isVerified || false,
   };
 
   return NextResponse.json({ success: true, profile });
@@ -59,6 +61,7 @@ export async function PATCH(request: NextRequest) {
         fullName: true,
         email: true,
         avatarUrl: true,
+        isVerified: true,
       },
     });
 
@@ -68,6 +71,7 @@ export async function PATCH(request: NextRequest) {
         name: updated.fullName,
         email: updated.email,
         avatarUrl: updated.avatarUrl || '/person-2.png',
+        isVerified: updated.isVerified,
       } satisfies PublicAdminProfile,
     });
   } catch {

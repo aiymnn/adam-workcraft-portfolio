@@ -45,6 +45,7 @@ export interface PublicAdminProfile {
   name: string;
   email: string;
   avatarUrl: string;
+  isVerified?: boolean;
 }
 
 export interface PublicContactMessageInput {

@@ -26,17 +26,22 @@ enum SocialPlatform {
 }
 
 model AdminUser {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  fullName     String   @map("full_name")
-  email        String   @unique
-  avatarUrl    String?  @map("avatar_url")
-  passwordHash String
-  role         String   @default("admin")
-  isActive     Boolean  @default(true) @map("is_active")
-  lastLoginAt  DateTime? @map("last_login_at")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String    @id @default(cuid())
+  username            String    @unique
+  fullName            String    @map("full_name")
+  email               String    @unique
+  avatarUrl           String?   @map("avatar_url")
+  passwordHash        String
+  role                String    @default("admin")
+  isActive            Boolean   @default(true)  @map("is_active")
+  isVerified          Boolean   @default(false) @map("is_verified")
+  verifiedAt          DateTime?                 @map("verified_at")
+  verificationToken   String?                   @map("verification_token")
+  resetToken          String?                   @map("reset_token")
+  resetTokenExpiresAt DateTime?                 @map("reset_token_expires_at")
+  lastLoginAt         DateTime?                 @map("last_login_at")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@map("admin_users")
 }

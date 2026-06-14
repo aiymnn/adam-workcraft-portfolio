@@ -138,14 +138,31 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaved, setPasswordSaved] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
   const passwordChecks = getPasswordRuleChecks(newPassword, profile);
   const passedPasswordChecks = passwordChecks.filter((check) => check.passed).length;
   const passwordStrength = getPasswordStrength(passedPasswordChecks, passwordChecks.length);
   const allPasswordChecksPassed = passwordChecks.every((check) => check.passed);
+
+  // Load verified status from server
+  useEffect(() => {
+    let active = true;
+    fetch('/api/admin/profile', { cache: 'no-store', credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((data: { profile?: { isVerified?: boolean } }) => {
+        if (active && data.profile) setIsVerified(data.profile.isVerified ?? false);
+      })
+      .catch(() => {})
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !isAuthenticated()) {
@@ -417,9 +434,14 @@ export default function ProfilePage() {
     event.target.value = '';
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     setPasswordError('');
     setPasswordSaved(false);
+
+    if (!currentPassword) {
+      setPasswordError('Enter your current password to confirm.');
+      return;
+    }
 
     const nextName = profile.name.trim();
     const nextEmail = profile.email.trim().toLowerCase();
@@ -433,13 +455,7 @@ export default function ProfilePage() {
       return;
     }
 
-    const normalizedProfile = {
-      ...profile,
-      name: nextName,
-      email: nextEmail,
-    };
-
-    const passwordValidationError = validatePassword(newPassword, normalizedProfile);
+    const passwordValidationError = validatePassword(newPassword, { ...profile, name: nextName, email: nextEmail });
     if (passwordValidationError) {
       setPasswordError(passwordValidationError);
       return;
@@ -450,15 +466,54 @@ export default function ProfilePage() {
       return;
     }
 
+    setPasswordSaving(true);
     try {
-      localStorage.setItem('admin_password', newPassword);
-    } catch {}
+      const res = await fetch('/api/admin/profile/password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = (await res.json()) as { success?: boolean; message?: string };
 
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordSaved(true);
-    setTimeout(() => setPasswordSaved(false), 2000);
-    toast.success('Password updated');
+      if (res.ok && data.success) {
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setPasswordSaved(true);
+        setTimeout(() => setPasswordSaved(false), 2000);
+        toast.success('Password updated successfully');
+      } else {
+        setPasswordError(data.message ?? 'Failed to update password');
+        toast.error(data.message ?? 'Failed to update password');
+      }
+    } catch {
+      setPasswordError('Network error. Please try again.');
+      toast.error('Network error. Please try again.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    setVerifying(true);
+    setVerificationSent(false);
+    try {
+      const res = await fetch('/api/admin/profile/send-verification', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setVerificationSent(true);
+        toast.success('Verification email sent!');
+      } else {
+        toast.error(data.message || 'Failed to send verification email');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setVerifying(false);
+    }
   };
 
   return (
@@ -571,6 +626,61 @@ export default function ProfilePage() {
 
             <Card>
               <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-10 items-center justify-center rounded-lg bg-[var(--button)]">
+                      {isVerified ? (
+                        <svg className="size-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.955 11.955 0 01 3 12c0 6.627 5.373 12 12 12s12-5.373 12-12c0-1.862-.423-3.622-1.178-5.193" />
+                        </svg>
+                      ) : (
+                        <svg className="size-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div>
+                      <CardTitle className="text-base">Account Verification</CardTitle>
+                      <CardDescription>
+                        {isVerified === null ? 'Checking…' : isVerified ? 'Your account is verified' : 'Your account is not yet verified'}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  {isVerified !== null && (
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      isVerified
+                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    }`}>
+                      {isVerified ? 'Verified' : 'Unverified'}
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              {!isVerified && isVerified !== null && (
+                <CardContent>
+                  <p className="text-sm text-[var(--text-muted)] mb-4">
+                    Your account is not verified. You will not be able to access other admin pages until you verify your email address.
+                  </p>
+                  <Button
+                    onClick={handleVerify}
+                    disabled={verifying || verificationSent}
+                    variant="primary"
+                    size="sm"
+                  >
+                    {verificationSent ? (
+                      <><CheckIcon className="size-4 mr-2" />Verification Sent</>
+                    ) : verifying ? (
+                      'Sending...'
+                    ) : (
+                      'Send Verification Email'
+                    )}
+                  </Button>
+                </CardContent>
+              )}
+            </Card>
+            <Card>
+              <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="flex size-10 items-center justify-center rounded-lg bg-[var(--button)]">
                     <LockIcon className="size-4 text-[var(--text-muted)]" />
@@ -582,6 +692,15 @@ export default function ProfilePage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-[var(--text-muted)]">Current Password</label>
+                  <Input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => { setPasswordError(''); setCurrentPassword(e.target.value); }}
+                    placeholder="Enter your current password"
+                  />
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-[var(--text-muted)]">New Password</label>
                   <Input
@@ -632,11 +751,13 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-3 pt-1">
                   <Button
                     onClick={handleChangePassword}
-                    disabled={!newPassword || !confirmPassword || !allPasswordChecksPassed}
+                    disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword || !allPasswordChecksPassed}
                     className="border border-[var(--border)] bg-[var(--text)] text-[var(--bg-end)] hover:opacity-90 disabled:opacity-40"
                   >
                     {passwordSaved ? (
                       <><CheckIcon className="size-4" /><span>Password Updated</span></>
+                    ) : passwordSaving ? (
+                      'Updating…'
                     ) : (
                       'Update Password'
                     )}
