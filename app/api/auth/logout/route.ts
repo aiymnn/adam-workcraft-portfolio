@@ -6,7 +6,7 @@ export async function POST() {
 
   response.cookies.set(ADMIN_SESSION_COOKIE, '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https'),
     sameSite: 'lax',
     path: '/',
     maxAge: 0,
@@ -14,7 +14,7 @@ export async function POST() {
 
   response.cookies.set(ADMIN_AUTH_STATE_COOKIE, '', {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https'),
     sameSite: 'lax',
     path: '/',
     maxAge: 0,
