@@ -28,10 +28,7 @@ export async function checkSession(): Promise<boolean> {
   }
 }
 
-export async function login(
-  username: string,
-  password: string,
-): Promise<{ success: boolean; requiresVerification?: boolean }> {
+export async function login(username: string, password: string): Promise<{ success: boolean }> {
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
@@ -40,16 +37,10 @@ export async function login(
       body: JSON.stringify({ username, password }),
     });
 
-    const data = (await res.json()) as {
-      success?: boolean;
-      requiresVerification?: boolean;
-    };
+    const data = (await res.json()) as { success?: boolean };
 
     if (res.ok && data.success) {
-      return {
-        success: true,
-        requiresVerification: data.requiresVerification === true,
-      };
+      return { success: true };
     }
 
     return { success: false };

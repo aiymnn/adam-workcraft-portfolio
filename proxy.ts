@@ -14,7 +14,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname !== ADMIN_LOGIN_PATH && !authenticated) {
-    if (pathname === '/admin/verify-pending' || pathname === '/admin/forgot-password' || pathname === '/admin/reset-password') {
+    if (pathname === '/admin/forgot-password' || pathname === '/admin/reset-password') {
        return NextResponse.next();
     }
     const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
@@ -25,15 +25,15 @@ export async function proxy(request: NextRequest) {
   const isVerified = request.cookies.get('admin_verified')?.value === '1';
 
   if (authenticated && !isVerified) {
-    if (pathname !== '/admin/verify-pending') {
-      return NextResponse.redirect(new URL('/admin/verify-pending', request.url));
+    if (pathname !== '/admin/profile') {
+      return NextResponse.redirect(new URL('/admin/profile', request.url));
     }
     return NextResponse.next();
   }
 
-  if (pathname === '/admin/verify-pending' && authenticated && isVerified) {
-    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-  }
+  // If they are verified, and they try to go to login or profile just to verify, that's fine.
+  // We no longer have a verify-pending page.
+
 
   return NextResponse.next();
 }

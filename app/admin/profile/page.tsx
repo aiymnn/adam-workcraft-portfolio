@@ -145,6 +145,8 @@ export default function ProfilePage() {
   const [passwordSaved, setPasswordSaved] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
   const passwordChecks = getPasswordRuleChecks(newPassword, profile);
   const passedPasswordChecks = passwordChecks.filter((check) => check.passed).length;
   const passwordStrength = getPasswordStrength(passedPasswordChecks, passwordChecks.length);
@@ -493,6 +495,27 @@ export default function ProfilePage() {
     }
   };
 
+  const handleVerify = async () => {
+    setVerifying(true);
+    setVerificationSent(false);
+    try {
+      const res = await fetch('/api/admin/profile/send-verification', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setVerificationSent(true);
+        toast.success('Verification email sent!');
+      } else {
+        toast.error(data.message || 'Failed to send verification email');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <AdminHeader
@@ -636,9 +659,23 @@ export default function ProfilePage() {
               </CardHeader>
               {!isVerified && isVerified !== null && (
                 <CardContent>
-                  <p className="text-sm text-[var(--text-muted)] mb-3">
-                    Sign out and log back in to receive a new verification email, then click the link to verify your account.
+                  <p className="text-sm text-[var(--text-muted)] mb-4">
+                    Your account is not verified. You will not be able to access other admin pages until you verify your email address.
                   </p>
+                  <Button
+                    onClick={handleVerify}
+                    disabled={verifying || verificationSent}
+                    variant="primary"
+                    size="sm"
+                  >
+                    {verificationSent ? (
+                      <><CheckIcon className="size-4 mr-2" />Verification Sent</>
+                    ) : verifying ? (
+                      'Sending...'
+                    ) : (
+                      'Send Verification Email'
+                    )}
+                  </Button>
                 </CardContent>
               )}
             </Card>

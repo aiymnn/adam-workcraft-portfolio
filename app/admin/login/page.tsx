@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,20 +26,34 @@ function AdminLoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
 
+  const hasToasted = useRef(false);
+
   useEffect(() => {
     setMounted(true);
+
+    if (hasToasted.current) return;
 
     // Show toast from URL params
     const verifiedParam = searchParams.get('verified');
     const resetParam = searchParams.get('reset');
     const errorParam = searchParams.get('error');
 
+    let didToast = false;
     if (verifiedParam === '1') {
       toast.success('Email verified! You can now sign in.');
+      didToast = true;
     } else if (resetParam === '1') {
       toast.success('Password reset successfully. Please sign in.');
+      didToast = true;
     } else if (errorParam) {
       toast.error('Verification link is invalid or has expired.');
+      didToast = true;
+    }
+    
+    if (didToast) {
+      hasToasted.current = true;
+      // Optionally clean up URL so refresh doesn't toast again
+      window.history.replaceState({}, '', '/admin/login');
     }
   }, [searchParams, toast]);
 
@@ -73,13 +87,6 @@ function AdminLoginForm() {
       }
 
       const result = await login(normalizedUsername, normalizedPassword);
-
-      if (result.success && result.requiresVerification) {
-        // Account unverified — show in-page notice
-        setVerificationSent(true);
-        setIsSubmitting(false);
-        return;
-      }
 
       if (result.success) {
         toast.success('Welcome back');
@@ -116,67 +123,45 @@ function AdminLoginForm() {
         </CardHeader>
 
         <CardContent>
-          {verificationSent ? (
-            <div className="space-y-4 text-center">
-              <div className="flex size-12 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10 mx-auto">
-                <svg className="size-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-[var(--text)]">Check your email</p>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  A verification link has been sent. Click it to activate your account and sign in.
-                </p>
-              </div>
-              <button
-                onClick={() => setVerificationSent(false)}
-                className="text-xs text-[var(--text-dim)] hover:text-[var(--text)] transition-colors"
-              >
-                &larr; Try again
-              </button>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--text-muted)]">Username</label>
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="admin"
+                required
+                autoComplete="off"
+              />
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[var(--text-muted)]">Username</label>
-                <Input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
-                  required
-                  autoComplete="off"
-                />
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[var(--text-muted)]">Password</label>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--text-muted)]">Password</label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+              />
+            </div>
 
-              {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && <p className="text-sm text-red-400">{error}</p>}
 
-              <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? 'Signing in…' : 'Sign In'}
-              </Button>
+            <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Signing in…' : 'Sign In'}
+            </Button>
 
-              <div className="text-center">
-                <Link
-                  href="/admin/forgot-password"
-                  className="text-xs text-[var(--text-dim)] transition-colors hover:text-[var(--text)]"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-            </form>
-          )}
+            <div className="text-center">
+              <Link
+                href="/admin/forgot-password"
+                className="text-xs text-[var(--text-dim)] transition-colors hover:text-[var(--text)]"
+              >
+                Forgot password?
+              </Link>
+            </div>
+          </form>
         </CardContent>
       </Card>
 

@@ -106,13 +106,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // ── Email verification gate ──────────────────────────────────────────────
+    // ── Email verification ──────────────────────────────────────────────
     if (!admin.isVerified) {
       const verificationToken = randomBytes(48).toString('hex');
 
       await adminUsers.update({
         where: { id: admin.id },
-        data: { verificationToken },
+        data: { verificationToken, lastLoginAt: new Date() },
       });
 
       // Fire-and-forget – don't block the response
@@ -121,22 +121,13 @@ export async function POST(request: Request) {
         adminName: admin.fullName,
         token: verificationToken,
       });
-
-      return NextResponse.json(
-        {
-          success: true,
-          requiresVerification: true,
-          message: 'Check your email to verify your account.',
-        },
-        { status: 200 },
-      );
+    } else {
+      await adminUsers.update({
+        where: { id: admin.id },
+        data: { lastLoginAt: new Date() },
+      });
     }
     // ────────────────────────────────────────────────────────────────────────
-
-    await adminUsers.update({
-      where: { id: admin.id },
-      data: { lastLoginAt: new Date() },
-    });
 
     const sessionToken = await createAdminSessionToken(admin.username, authSecret);
     const maxAge = getAdminSessionTtlSeconds();
@@ -162,13 +153,17 @@ export async function POST(request: Request) {
       maxAge,
     });
 
-    response.cookies.set('admin_verified', '1', {
-      httpOnly: true,
-      secure: isSecure,
-      sameSite: 'lax',
-      path: '/',
-      maxAge,
-    });
+    if (admin.isVerified) {
+      response.cookies.set('admin_verified', '1', {
+        httpOnly: true,
+        secure: isSecure,
+        sameSite: 'lax',
+        path: '/',
+        maxAge,
+      });
+    } else {
+      response.cookies.delete('admin_verified');
+    }
 
     return response;
   } catch {
