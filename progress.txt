@@ -1266,3 +1266,23 @@ px next build � zero errors
 
 ### Fixed Duplicate React Keys in Gallery Crossfade
 - Modified `components/sections/gallery.tsx` — Prefixed outgoing/current image keys with `outgoing-` and `current-` to prevent key collisions when image URLs are duplicated in the `images` array (e.g., graphic items where `thumb` equals the only `media` entry).
+
+[2026-06-14 13:56:50] FIX: Resolved login redirection loop by fixing Next.js 16 proxy convention and environment variables mismatch.
+
+[2026-06-14 14:01:10] UPDATE: Removed dedicated WhatsApp text button from contact section and applied the dynamic URL routing directly to the WhatsApp social media icon.
+
+[2026-06-14 14:12:13] REFACTOR: Removed obsolete masonry layout fields (Card Width/Height) from Vault Admin UI and introduced dedicated reorder controls (Move Up/Down) with a new batch update API endpoint.
+
+[2026-06-14 14:15:52] UPDATE: Refactored public Vault gallery filter tabs to generate dynamically from active collection categories instead of being hardcoded to Photography/Videography.
+
+[2026-06-14 14:21:54] REFACTOR: Removed dynamic VaultCategory system (table, API, services) and hardcoded category selection to Photography/Videography to simplify Admin UI.
+
+[2026-06-14 14:28:47] UX: Strictly enforced Vault collection preview logic based on Category (Videography=video loop, Photography=image crossfade) while preserving mixed media support in Lightbox.
+
+[2026-06-14 14:36:46] FEAT: Added dynamic media index counter (e.g. '1 of 3') to the category label on public Vault cards.
+
+[2026-06-14 14:45:09] FEAT: Applied dynamic media index counter inside Lightbox modal for all categories (e.g. 'VIDEOGRAPHY - 1 OF 3').
+
+[2026-06-14 14:48:10] FIX: Restricted Admin Vault upload dropzones based on category (Photography=Image only, Videography=Video only) and fixed video thumbnail rendering in the admin list.
+
+[2026-06-14 14:56:24] FEAT: Added Up/Down reorder buttons to Admin Vault rows (desktop + mobile). Fixed isFirst/isLast to respect global order even when filtered. Fixed SSR public data sort order to use sortOrder ASC instead of createdAt DESC.

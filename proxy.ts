@@ -14,14 +14,25 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname !== ADMIN_LOGIN_PATH && !authenticated) {
+    if (pathname === '/admin/verify-pending' || pathname === '/admin/forgot-password' || pathname === '/admin/reset-password') {
+       return NextResponse.next();
+    }
     const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
     loginUrl.searchParams.set('next', pathname);
-    const response = NextResponse.redirect(loginUrl);
-    // DEBUG HEADERS
-    response.headers.set('x-debug-token-exists', token ? 'yes' : 'no');
-    response.headers.set('x-debug-secret-exists', secret ? 'yes' : 'no');
-    response.headers.set('x-debug-auth-result', String(authenticated));
-    return response;
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const isVerified = request.cookies.get('admin_verified')?.value === '1';
+
+  if (authenticated && !isVerified) {
+    if (pathname !== '/admin/verify-pending') {
+      return NextResponse.redirect(new URL('/admin/verify-pending', request.url));
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname === '/admin/verify-pending' && authenticated && isVerified) {
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
   }
 
   return NextResponse.next();

@@ -28,7 +28,10 @@ export async function checkSession(): Promise<boolean> {
   }
 }
 
-export async function login(username: string, password: string): Promise<boolean> {
+export async function login(
+  username: string,
+  password: string,
+): Promise<{ success: boolean; requiresVerification?: boolean }> {
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
@@ -37,11 +40,24 @@ export async function login(username: string, password: string): Promise<boolean
       body: JSON.stringify({ username, password }),
     });
 
-    return res.ok;
+    const data = (await res.json()) as {
+      success?: boolean;
+      requiresVerification?: boolean;
+    };
+
+    if (res.ok && data.success) {
+      return {
+        success: true,
+        requiresVerification: data.requiresVerification === true,
+      };
+    }
+
+    return { success: false };
   } catch {
-    return false;
+    return { success: false };
   }
 }
+
 
 export async function logout(): Promise<void> {
   if (typeof document !== 'undefined') {

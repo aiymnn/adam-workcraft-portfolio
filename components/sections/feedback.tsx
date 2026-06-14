@@ -6,7 +6,6 @@ import Image from 'next/image';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useLanguage } from '@/context/language-context';
-import SubmitReviewModal from '@/components/ui/submit-review-modal';
 import { fetchPublicReviews } from '@/lib/services/public-content';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -343,18 +342,6 @@ export default function Feedback({ initialReviews, onInitialDataReady }: Feedbac
               {loadingMore ? 'Loading...' : 'View More Experiences'}
             </button>
           )}
-
-          <div className="h-px w-16 bg-[var(--border)] mx-auto" />
-
-          <button
-            onClick={() => setReviewModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-8 py-3 text-sm font-medium text-amber-200/90 shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all hover:border-amber-500/60 hover:bg-amber-500/20 hover:shadow-[0_0_30px_rgba(245,158,11,0.2)] md:px-10 md:py-3.5"
-          >
-            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Share Your Experience
-          </button>
         </div>
       </div>
 
@@ -366,8 +353,6 @@ export default function Feedback({ initialReviews, onInitialDataReady }: Feedbac
           onIndexChange={(i) => setLightbox((prev) => prev ? { ...prev, index: i } : null)}
         />
       )}
-
-      <SubmitReviewModal open={reviewModalOpen} onClose={() => setReviewModalOpen(false)} />
     </section>
   );
 }

@@ -7,15 +7,21 @@ import {
 } from '@/lib/server/admin-session';
 import { db } from '@/lib/server/db/client';
 import { hashPassword, verifyPassword } from '@/lib/server/password';
+import { sendVerificationEmail } from '@/lib/server/mailer';
+import { randomBytes } from 'crypto';
 
+// Type-safe wrapper for the AdminUser model
 const adminUsers = (db as unknown as {
   adminUser: {
     count: () => Promise<number>;
     findUnique: (args: { where: { username: string } }) => Promise<{
       id: string;
       username: string;
+      fullName: string;
+      email: string;
       passwordHash: string;
       isActive?: boolean | null;
+      isVerified?: boolean | null;
     } | null>;
     create: (args: {
       data: {
@@ -28,10 +34,13 @@ const adminUsers = (db as unknown as {
     }) => Promise<{
       id: string;
       username: string;
+      fullName: string;
+      email: string;
       passwordHash: string;
       isActive?: boolean | null;
+      isVerified?: boolean | null;
     }>;
-    update: (args: { where: { id: string }; data: { lastLoginAt: Date } }) => Promise<unknown>;
+    update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>;
   };
 }).adminUser;
 
@@ -90,42 +99,78 @@ export async function POST(request: Request) {
     }
 
     const validPassword = await verifyPassword(password, admin.passwordHash);
-    if (validPassword) {
-      await adminUsers.update({
-        where: { id: admin.id },
-        data: { lastLoginAt: new Date() },
-      });
-
-      const token = await createAdminSessionToken(admin.username, authSecret);
-      const maxAge = getAdminSessionTtlSeconds();
-      // Only enforce secure cookies in production IF the site is accessed via HTTPS.
-      const isSecure = process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') === true;
-      const response = NextResponse.json({ success: true, message: 'Authenticated' });
-
-      response.cookies.set(ADMIN_SESSION_COOKIE, token, {
-        httpOnly: true,
-        secure: isSecure,
-        sameSite: 'lax',
-        path: '/',
-        maxAge,
-      });
-
-      // Non-sensitive UI hint cookie for client-side route effects.
-      response.cookies.set(ADMIN_AUTH_STATE_COOKIE, '1', {
-        httpOnly: false,
-        secure: isSecure,
-        sameSite: 'lax',
-        path: '/',
-        maxAge,
-      });
-
-      return response;
+    if (!validPassword) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid credentials' },
+        { status: 401 },
+      );
     }
 
-    return NextResponse.json(
-      { success: false, message: 'Invalid credentials' },
-      { status: 401 },
-    );
+    // ── Email verification gate ──────────────────────────────────────────────
+    if (!admin.isVerified) {
+      const verificationToken = randomBytes(48).toString('hex');
+
+      await adminUsers.update({
+        where: { id: admin.id },
+        data: { verificationToken },
+      });
+
+      // Fire-and-forget – don't block the response
+      void sendVerificationEmail({
+        to: admin.email,
+        adminName: admin.fullName,
+        token: verificationToken,
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          requiresVerification: true,
+          message: 'Check your email to verify your account.',
+        },
+        { status: 200 },
+      );
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    await adminUsers.update({
+      where: { id: admin.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const sessionToken = await createAdminSessionToken(admin.username, authSecret);
+    const maxAge = getAdminSessionTtlSeconds();
+    const isSecure =
+      process.env.NODE_ENV === 'production' &&
+      process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') === true;
+
+    const response = NextResponse.json({ success: true, message: 'Authenticated' });
+
+    response.cookies.set(ADMIN_SESSION_COOKIE, sessionToken, {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: 'lax',
+      path: '/',
+      maxAge,
+    });
+
+    response.cookies.set(ADMIN_AUTH_STATE_COOKIE, '1', {
+      httpOnly: false,
+      secure: isSecure,
+      sameSite: 'lax',
+      path: '/',
+      maxAge,
+    });
+
+    response.cookies.set('admin_verified', '1', {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: 'lax',
+      path: '/',
+      maxAge,
+    });
+
+    return response;
   } catch {
     return NextResponse.json(
       { success: false, message: 'Invalid request' },
