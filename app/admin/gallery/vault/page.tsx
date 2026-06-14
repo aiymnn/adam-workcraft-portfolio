@@ -272,11 +272,7 @@ function VaultRow({ item, index, previewLoadingId, onUpdate, onEdit, onPreview, 
         <div className="flex items-center gap-3 px-4 pt-3 md:px-0 md:pt-0">
           <div className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-[var(--button)] md:size-10">
             {isVideo ? (
-              <div className="flex size-full items-center justify-center text-[var(--text-dim)]">
-                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25V7.5A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
-                </svg>
-              </div>
+              <video src={item.thumb} muted playsInline className="size-full object-cover" />
             ) : (
               <Image
                 src={item.thumb}
@@ -630,22 +626,26 @@ function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploa
             </div>
 
             <div className="mb-2 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-              <button
-                type="button"
-                onClick={openImagePicker}
-                disabled={saving}
-                className="min-h-9 rounded-md border border-[var(--border)] bg-[var(--button)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
-              >
-                Upload Images
-              </button>
-              <button
-                type="button"
-                onClick={openVideoPicker}
-                disabled={saving}
-                className="min-h-9 rounded-md border border-[var(--border)] bg-[var(--button)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
-              >
-                Upload Videos
-              </button>
+              {form.category === 'Photography' && (
+                <button
+                  type="button"
+                  onClick={openImagePicker}
+                  disabled={saving}
+                  className="min-h-9 rounded-md border border-[var(--border)] bg-[var(--button)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
+                >
+                  Upload Images
+                </button>
+              )}
+              {form.category === 'Videography' && (
+                <button
+                  type="button"
+                  onClick={openVideoPicker}
+                  disabled={saving}
+                  className="min-h-9 rounded-md border border-[var(--border)] bg-[var(--button)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
+                >
+                  Upload Videos
+                </button>
+              )}
             </div>
 
             {saving && uploadStage !== 'idle' && (
@@ -668,23 +668,27 @@ function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploa
               </div>
             )}
 
-            <MediaDropzone
-              title="Drop image files here"
-              hint="Drag files here or click to upload from your device"
-              icon="image"
-              onDrop={handleDropImages}
-              onClick={openImagePicker}
-              className="mb-2"
-            />
+            {form.category === 'Photography' && (
+              <MediaDropzone
+                title="Drop image files here"
+                hint="Drag files here or click to upload from your device"
+                icon="image"
+                onDrop={handleDropImages}
+                onClick={openImagePicker}
+                className="mb-2"
+              />
+            )}
 
-            <MediaDropzone
-              title="Drop video files here"
-              hint="Drag files here or click to upload from your device"
-              icon="video"
-              onDrop={handleDropVideos}
-              onClick={openVideoPicker}
-              className="mb-2"
-            />
+            {form.category === 'Videography' && (
+              <MediaDropzone
+                title="Drop video files here"
+                hint="Drag files here or click to upload from your device"
+                icon="video"
+                onDrop={handleDropVideos}
+                onClick={openVideoPicker}
+                className="mb-2"
+              />
+            )}
 
             <div className="scrollbar-hidden max-h-52 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--button)] p-2 sm:max-h-56">
               {combinedMedia.length === 0 ? (
