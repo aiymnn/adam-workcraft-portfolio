@@ -98,12 +98,13 @@ export async function POST(request: Request) {
 
       const token = await createAdminSessionToken(admin.username, authSecret);
       const maxAge = getAdminSessionTtlSeconds();
-      const isProd = process.env.NODE_ENV === 'production';
+      // Only enforce secure cookies in production IF the site is accessed via HTTPS.
+      const isSecure = process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https');
       const response = NextResponse.json({ success: true, message: 'Authenticated' });
 
       response.cookies.set(ADMIN_SESSION_COOKIE, token, {
         httpOnly: true,
-        secure: isProd,
+        secure: isSecure,
         sameSite: 'lax',
         path: '/',
         maxAge,
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
       // Non-sensitive UI hint cookie for client-side route effects.
       response.cookies.set(ADMIN_AUTH_STATE_COOKIE, '1', {
         httpOnly: false,
-        secure: isProd,
+        secure: isSecure,
         sameSite: 'lax',
         path: '/',
         maxAge,
