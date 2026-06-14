@@ -17,8 +17,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-    const username = payload.username;
+    const payloadStr = Buffer.from(token.split('.')[0], 'base64').toString('utf8');
+    const payload = JSON.parse(payloadStr);
+    const username = payload.u;
 
     const admin = await db.adminUser.findUnique({ where: { username } });
     if (!admin) {

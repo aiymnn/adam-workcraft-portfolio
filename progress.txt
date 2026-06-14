@@ -1288,3 +1288,5 @@ px next build � zero errors
 [2026-06-14 14:56:24] FEAT: Added Up/Down reorder buttons to Admin Vault rows (desktop + mobile). Fixed isFirst/isLast to respect global order even when filtered. Fixed SSR public data sort order to use sortOrder ASC instead of createdAt DESC.
 
 [2026-06-14 15:27:57] FEAT: Implemented complete admin verification and forget password flow. Added isVerified, resetToken columns to schema. Created verify-email, forgot-password, and reset-password API routes. Wired mailer to send verification/reset emails. Gated proxy.ts with admin_verified cookie and added VerifyPending page. Wired Profile change password to API. Removed Share Experience button from feedback section.
+\
+\
