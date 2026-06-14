@@ -12,6 +12,9 @@ COPY . .
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
 
 RUN npm run db:generate
+
+# Increase Node.js memory limit to 3GB to prevent "JavaScript heap out of memory" during build
+ENV NODE_OPTIONS="--max-old-space-size=3072"
 RUN npm run build
 
 FROM node:20-alpine AS runner
