@@ -112,7 +112,11 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
   const activeRef = useRef<'a' | 'b'>('a');
   const videoIdxRef = useRef(0);
 
-  const catLabel = (cat: string) => cat === 'Photography' ? t.gallery.photography : t.gallery.videography;
+  const catLabel = (cat: string) => {
+    if (cat === 'Photography') return t.gallery.photography || 'Photography';
+    if (cat === 'Videography') return t.gallery.videography || 'Videography';
+    return cat;
+  };
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -358,11 +362,21 @@ export default function Gallery({ initialVaultCollections, onOpenCollection, onI
     }));
   }, [initialVaultCollections]);
 
-  const TABS = [
-    { id: 'All', label: t.gallery.all || 'All Work' },
-    { id: 'Photography', label: t.gallery.photography },
-    { id: 'Videography', label: t.gallery.videography },
-  ];
+  const TABS = useMemo(() => {
+    const uniqueCats = Array.from(new Set(collections.map(c => c.category)));
+    
+    const dynamicTabs = uniqueCats.map(cat => {
+      let label = cat;
+      if (cat === 'Photography') label = t.gallery.photography || 'Photography';
+      if (cat === 'Videography') label = t.gallery.videography || 'Videography';
+      return { id: cat, label };
+    });
+
+    return [
+      { id: 'All', label: t.gallery.all || 'All Work' },
+      ...dynamicTabs
+    ];
+  }, [collections, t.gallery]);
 
   const [activeCategory, setActiveCategory] = useState('All');
   const [displayCategory, setDisplayCategory] = useState('All');
