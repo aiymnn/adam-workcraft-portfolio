@@ -8,6 +8,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+# Provide a dummy DATABASE_URL so Prisma can generate the client during build
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
 
 RUN npm run db:generate
 RUN npm run build
