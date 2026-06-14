@@ -1,0 +1,1268 @@
+## [2026-06-14]
+
+### Review Code System + Codebase Refactor
+
+- **Full-Stack Refactor - Public Collection Media System:**
+  - Migrated the `StoryLoopLogo` Prisma database schema to a new, flexible `PublicCollection` table. It now supports categorized assignments using the `PublicSection` enum (`ABOUT`, `EXPERTISE`, `HERO`) alongside `type` tracking (images/videos).
+  - Renamed and completely rebuilt the Admin dashboard page (`/admin/gallery/public-collection`). The admin can now securely upload images/videos and directly assign them to control the background media grids for the `About` and `Expertise` sections on the public landing page.
+  - **Feature Enhancement**: Added a "Collage Layout Preview" directly inside the Admin `Public Collection` page when the "About Section" tab is active. It visually replicates the exact masonry grid layout of the live website, allowing administrators to clearly see exactly which media file occupies which physical space (Slot 1 to 5). Added numerical badges to the list view to easily correlate list items with grid slots.
+  - **Feature Enhancement**: Added a live reorder feature (Up/Down arrows) for items in the Public Collection. Reordering automatically triggers an optimistic DB sync to preserve arrangement.
+  - **Feature Enhancement**: Added native video playback controls directly in the Admin Public Collection item cards to preview uploaded videos instead of showing static video frames.
+  - **Validation Logic**: Enforced strict upload limits on the Add Media modal specifically for the Expertise section (Max 1 video limit, Max 6 images limit) to prevent layout breakages on the public landing page.
+  - **Bug Fix**: Fixed a `Module not found` compilation error when attempting to reorder items caused by an incorrect Prisma DB import path in the newly created reorder API endpoint.
+  - Rewrote the `About` (`components/sections/about.tsx`) and `Expertise` (`components/sections/services.tsx`) sections to natively fetch this new `PublicCollection` data from the server, eliminating all hardcoded fallback media paths.
+  - **Major Architecture Refactor**: Upgraded the entire public landing page (`app/(public)/page.tsx`) from Client-Side Fetching to fully utilize Next.js Server-Side Rendering (SSR). Created a dedicated secure Prisma direct-access data layer (`lib/services/server-public-data.ts`). All sections (Hero, About, Expertise, Vault, Reviews) now have their initial data populated instantly on the server before the HTML is even sent to the client, entirely eliminating the waterfall loading delays and guaranteeing an ultra-fast loading experience.
+  - Activated and integrated the dynamic components into the global landing page `LandingPageLoader`. The page now intelligently waits until all database-driven section media (Hero, About, Services, Gallery, Feedback, Contact) has been fully fetched and hydrated before lifting the premium loading screen, guaranteeing a jank-free, perfectly smooth performance experience for the user.
+  - **Feature**: Built a complete Review Visibility & Lazy Loading system. Added `isActive` to the `Review` schema so all newly submitted reviews default to hidden. Created a new Admin dashboard page (`/admin/reviews/list`) where the admin can view and manually toggle visibility of submitted client reviews.
+  - **UX/Performance**: Implemented a "View More Experiences" lazy-load button on the public landing page's Feedback section. The section initially fetches the 3 most recent approved reviews via Server-Side Rendering (SSR). Clicking the button hits a new public API endpoint with `skip/take` pagination, seamlessly loading more cards and injecting them into the DOM using a smooth GSAP fade-up animation without ever reloading the page.
+  - **Performance Optimization**: Added proper `sizes` attribute to the Next.js `<Image>` tags in the Expertise section to prevent downloading 4K images on mobile devices, greatly speeding up First Contentful Paint (FCP).
+  - **Performance Optimization**: Reduced the `LandingPageLoader` minimum delay down to 200ms and added `loading="lazy"` tags to the native About grid images to improve user perceived load speed.
+  - **Bug Fix**: Resolved an issue where Gallery and Review cards rendered blank data because the Server-Side Prisma fetch logic was mapping to incorrect database schema fields (e.g. `clientName` instead of `author`, `content` instead of `quote`, and misaligned Vault interfaces).
+  - **Bug Fix:** Resolved the "Encountered a script tag while rendering React component" and "Invalid HTML tag nesting" hydration errors. The root cause was a literal `<head>` tag manually placed inside the `app/layout.tsx` file, which conflicts with Next.js 13+ App Router's internal metadata manager. Replaced this with the official Next.js `<Script strategy="beforeInteractive">` component inside the body, aligning the server and client HTML trees perfectly.
+  - **Bug Fix:** Resolved the "A tree hydrated but some attributes of the server rendered HTML didn't match the client properties" hydration mismatch error occurring on Admin Gallery pages (`Vault`, `Reviews`, `Public Collection`). The error triggered because the `useMediaQuery` hook (`isMobile`) evaluated to `false` on the server but `true` on mobile clients, generating conflicting sidebar layouts. Fixed this by adding a `mounted` state bypass.
+- Adjusted the layout of the Expertise section (`components/sections/services.tsx`) so that it now occupies full screen height (`100vh`) on both mobile and desktop screens, improving immersion.
+- Updated the `SERVICES` array in the "Story" section (`components/sections/about.tsx`) to feature a more comprehensive and professional list of offerings (e.g., "Cinematic Wedding Films", "Editorial Photography", "Documentary Storytelling").
+- Overhauled the Malay (BM) translation in `context/language-context.tsx` across the entire landing page. Replaced literal, AI-sounding translations with natural, culturally resonant Malaysian creative agency copywriting (e.g., "Pencerita Visual", "Sesi Perbincangan", "Koleksi Karya").
+- Refined the "Story" section copy in both English and Malay (`context/language-context.tsx`) to sound more professional, framing the business as a specialized visual studio rather than a freelance individual, and removing outdated references to graphic design and short films.
+- Restored the category filter in "The Work Vault" (`components/sections/gallery.tsx`), styled to be more compact (`text-xs`, tighter padding) for a cleaner UX. 
+- Replaced external Unsplash dummy image links in the `SERVICES_DATA` with local placeholder images (`/design1.jpg`, `/design2.jpg`, etc.) for better offline reliability and performance.
+- Fixed a bug where the Videography auto-play background video wasn't expanding to full width by applying explicit `w-full h-full` Tailwind utilities.
+- Redesigned `components/sections/services.tsx` (Expertise Section) into an interactive split-screen layout. Features include descriptive subtext, fluid flex-grow transitions on desktop hover, an auto-playing carousel for Photography, a looping auto-play dummy video for Videography, and a GSAP scroll-triggered background illumination effect for mobile devices.
+- Updated `app/(public)/page.tsx`, `components/sections/services.tsx`, `components/sections/about.tsx`, and `components/sections/gallery.tsx` to streamline the landing page services to only focus on Photography and Videography.
+  - Removed the "Graphic/Design" service category.
+  - Simplified the "Story" section services list to highlight specific event types (`Wedding Event`, `Engagement Event`, `Corporate Event`).
+  - Removed the filtering tabs entirely from "The Work Vault" to provide a unified scrolling experience, cleaning up unused category filter states from the main landing page.
+- Updated `app/api/public/reviews/submit/route.ts` to parse `multipart/form-data` and upload submitted image/video files directly to Google Drive via the `@/lib/server/google-drive` utility, replacing URL-based submission.
+- Updated `app/submit-review/page.tsx` UI to use a native drag-and-drop local file upload interface (matching the public UI theme) instead of plain text URL inputs, complete with local thumbnail previews and concurrent Google Drive upload progress handling.
+- Installed `nodemailer` + `@types/nodemailer` — Gmail SMTP email capability added.
+- Created `lib/server/mailer.ts` — Nodemailer singleton with branded dark-theme HTML email template for review invite emails. Falls back to console logging in dev when SMTP is unconfigured.
+- Created `types/booking.ts` — Moved shared `Booking` interface from admin-specific `_components/types.ts` to shared `types/` folder, fixing the architectural boundary violation.
+- Modified `app/admin/schedule/_components/types.ts` — Re-exports `Booking` from `types/booking.ts` for backward compatibility.
+- Created `app/api/admin/bookings/eligible-for-review/route.ts` — GET endpoint returning confirmed, past-date, review-unsubmitted bookings.
+- Created `app/api/admin/bookings/[id]/send-review-email/route.ts` — POST endpoint that generates a review code and sends the invite email to the client.
+- Created `app/api/public/reviews/verify/route.ts` — Public (no auth) POST endpoint validating a review code against PostgreSQL.
+- Created `app/api/public/reviews/submit/route.ts` — Public POST endpoint that creates the `Review` and marks `booking.reviewSubmitted = true` atomically using a Prisma `$transaction`.
+- Rewrote `app/submit-review/page.tsx` — Complete rewrite from localStorage to real API calls. Code verification now checks real database. Premium responsive UI with amber design, loading states, and error handling.
+- Created `lib/services/admin-pending-reviews.ts` — Service module for fetching eligible bookings and triggering email sends.
+- Created `app/admin/reviews/pending/page.tsx` — New fully responsive admin page showing pending review invites. Per row: client info, code display with copy/copy-link buttons, Send Invite / Resend CTA. Loading skeleton, empty state, toast feedback.
+- Modified `components/admin/admin-sidebar.tsx` — Added "Pending Reviews" as child nav item under Gallery group.
+- TypeScript compilation: ✅ 0 errors.
+
+## [2026-06-13]
+
+### Professional Sections Integration
+
+- Created `components/sections/process.tsx` - Built a responsive, step-by-step "How We Work" workflow timeline using frosted glass cards and GSAP `ScrollTrigger` fade-ins.
+- Created `components/sections/services.tsx` - Designed an Interactive "Services Showcase" with massive typography and dynamic full-bleed background media crossfading on hover. Added a smooth-scroll click interaction so clicking a service seamlessly anchors the user down to the Work Vault.
+- Modified `app/(public)/page.tsx` - Implemented Narrative Flow Re-order (Option A): Structured the page as About -> Expertise -> Process -> Vault, breaking up heavy visual sections to reduce user fatigue. Lifted `activeCategory` state to the root page level.
+- Modified `app/(public)/page.tsx` - Removed global GSAP section fade animation to eliminate scroll delay and restore buttery smooth UI performance.
+- Modified `components/sections/gallery.tsx` - Upgraded the Cinematic Bento Grid into a "Stateful Categorized Bento Grid" with sleek category tabs. Wired it to seamlessly filter and animate (`GSAP`) when categories are selected or when an Expertise service is clicked above.
+- Modified `components/sections/gallery.tsx` - Converted the gallery grid to use `grid-flow-row-dense` and dynamic mapping for `columnSpan` and `rowSpan`, ensuring perfect gap-filling logic for future database integration.
+- Modified `components/sections/services.tsx`, `components/sections/gallery.tsx`, `context/language-context.tsx` - Renamed "Design" category to "Graphic" globally and added dummy testing data.
+- Modified `components/sections/gallery.tsx` - Completely rebuilt the Work Vault into a **Single-Row Horizontal Carousel**. Implemented horizontal scrolling with `snap-x`, `snap-center`, and `scroll-smooth`. Added a "Swipe to explore ->" animated UI hint strictly for mobile users to intuitively guide interactions.
+- Modified `components/sections/gallery.tsx` - Moved the filter tabs to the right side of the section title on desktop layouts for a cleaner, wider header hierarchy.
+- Modified `components/sections/gallery.tsx` - Implemented native "scroll-jacking" UX: When a desktop user hovers over the gallery row, scrolling their mouse wheel vertically automatically translates into buttery-smooth horizontal swiping.
+- Modified `components/sections/process.tsx` - Added a slow-moving, glowing ambient orb to the background and animated the connector lines to dynamically "draw" themselves as the user scrolls down the page. Added intense hover-glow effects to the process cards. *Performance update*: Replaced the heavy CSS `blur-[100px]` filter on the orb with a zero-cost, hardware-accelerated CSS `radial-gradient` and added `will-change-transform` to prevent repaints and ensure silky 60fps animations on mobile devices.
+- Modified `components/sections/services.tsx` - Enhanced the Expertise hover-reveal backgrounds to use a slow, cinematic scale zoom effect with a darker gradient overlay for a deeply premium interaction.
+- Modified `app/layout.tsx` - Added strict `overflow-x-hidden` protection to the `<body>` to enforce absolute responsiveness and permanently resolve any horizontal scrolling/layout breaking conflicts caused by the mobile hamburger menu or full-width elements.
+- Modified `components/sections/hero.tsx` - Complete mobile layout overhaul: changed flex layout from `flex-col-reverse` to `flex-col` with `justify-center`, replaced fixed `text-9xl` heading with fluid `clamp(2.5rem, 10vw, 6rem)`, centered text and CTAs on mobile, fixed image sizing to `size-52` on small screens.
+- Modified `app/globals.css` - Completely disabled and hid the main browser scrollbar (`::-webkit-scrollbar { display: none; }`) globally for a cleaner, ultra-minimalist full-screen aesthetic on desktop.
+- Modified `app/layout.tsx` - Replaced standard `<script>` with `next/script` `<Script strategy="beforeInteractive">` to correctly resolve the React hydration/render warning.
+- Modified `next.config.ts` - Added `images.unsplash.com` to `remotePatterns` to authorize external dummy images for Next.js `Image` optimization.
+
+### Gallery Cinematic Bento Grid Redesign
+- Modified `components/sections/gallery.tsx` - Removed standard play buttons and added a custom magnetic "VIEW/PLAY" button that elegantly follows the user's cursor inside the card bounds using GSAP `quickTo`.
+- Modified `components/sections/gallery.tsx` - Added 3D parallax tilt to cards relative to the cursor position for a deeper interactive feel.
+
+### About Section Marquee Tweak
+- Modified `app/globals.css` - Added `@keyframes marquee-reverse` to allow bottom-to-top scrolling.
+- Modified `components/sections/about.tsx` - Replaced single scrolling block with alternating vertical columns (Col 1 & 3 scroll down, Col 2 & 4 scroll up) and slowed animation duration from `20s` to `35s-45s` for a smoother, organic flow.
+- Modified `components/sections/about.tsx` - Expanded the grid to 7 vertical columns, implemented randomized staggering for 4 distinct logo sizes, and added a heavy opacity fade to the outermost columns for a seamless blend into the background.
+
+### Landing Page Premium Redesign
+- Modified `app/globals.css` - Added richer dark tones, animated `bg-mesh`, and seamless CSS `marquee` keyframes for performance.
+- Modified `components/sections/hero.tsx` - Removed static gradient background, replaced with premium animated `bg-mesh` and cinematic overlay.
+- Rewrote `components/sections/about.tsx` - Removed complex GSAP Drive logo fetching; implemented highly optimized CSS-driven dummy logo marquee for instant loading.
+- Modified `components/sections/gallery.tsx` - Overhauled layout to use asymmetric masonry styling and added premium hover parallax effects to `GalleryCard`.
+- Modified `components/sections/feedback.tsx` - Upgraded card designs with glassmorphism, backdrop-blur, and premium floating shadows.
+- Modified `components/sections/contact.tsx` - Updated form inputs and CTA button to matching premium glassmorphism aesthetic.
+
+## [2026-05-19]
+### Portfolio Landing Page
+- Created `components/Hero.tsx` - Dark-themed hero section with GSAP text reveal animation
+- Created `components/About.tsx` - About section with ScrollTrigger fade-in on scroll
+- Created `components/MagneticCTA.tsx` - Magnetic CTA button with GSAP cursor-follow effect
+- Modified `app/page.tsx` - Composed Hero, About, and MagneticCTA sections
+- Modified `app/layout.tsx` - Updated metadata for portfolio branding
+- Modified `app/globals.css` - Forced dark theme as default with premium zinc palette
+- Installed `gsap` - Added GSAP dependency for animations
+
+### Premium Portfolio v2 — Full Restructure
+- Created `components/ui/custom-cursor.tsx` - Inertial smooth cursor with hover scaling on interactive elements
+- Created `components/ui/magnetic-button.tsx` - Reusable magnetic CTA wrapper using GSAP
+- Created `components/sections/hero.tsx` - Cinematic text reveal with staggered GSAP animation and magnetic CTA
+- Created `components/sections/about.tsx` - Scroll-driven typography reveal with ScrollTrigger scrub
+- Created `components/sections/gallery.tsx` - Asymmetric staggered grid with parallax scroll effect
+- Modified `app/page.tsx` - Integrated all three sections (Hero, About, Gallery)
+- Modified `app/layout.tsx` - Added global CustomCursor component
+- Installed `@gsap/react` - Added GSAP React integration package
+
+### Ultra-Premium Portfolio v3 — Full Production Build
+- Created `components/ui/ambient-bg.tsx` - Animated floating blurred blobs with GSAP infinite loop
+- Created `components/layout/navbar.tsx` - Glassmorphism floating pill nav with smooth-scroll anchors
+- Created `components/sections/feedback.tsx` - Testimonial cards with staggered ScrollTrigger reveal
+- Created `components/sections/contact.tsx` - Minimalist contact form with magnetic button + footer
+- Enhanced `components/sections/gallery.tsx` - Asymmetric masonry columns with parallax yPercent scrub
+- Modified `app/page.tsx` - Assembled all 5 sections with section IDs (#home, #story, #gallery, #reviews, #connect) + Navbar
+- Modified `app/layout.tsx` - Added global AmbientBg component
+- Removed stale root components (`Hero.tsx`, `About.tsx`, `MagneticCTA.tsx`)
+
+### Warm Luxury Edition v4 — Cinematic Refinement
+- Created `components/ui/fluid-bg.tsx` - ScrollTrigger-driven gradient shift per section (replaces ambient-bg)
+- Modified `components/ui/custom-cursor.tsx` - Dual-element inertial cursor with amber warm accent
+- Modified `components/layout/navbar.tsx` - Warm stone glass palette with amber hover + updated section IDs
+- Rewrote `components/sections/hero.tsx` - Full-bleed Unsplash hero backdrop with cinematic gradient mask & "Ethereal" typography
+- Rewrote `components/sections/about.tsx` - Editorial storytelling layout with staggered ScrollTrigger reveals
+- Rewrote `components/sections/gallery.tsx` - Real Unsplash imagery with parallax scale ScrollTrigger effect
+- Modified `components/sections/feedback.tsx` - Stone/amber warm palette with staggered card reveal
+- Modified `components/sections/contact.tsx` - Stone/amber warm palette with refined form inputs
+- Modified `app/globals.css` - Switched from zinc cold to stone warm color tokens
+- Modified `app/layout.tsx` - Replaced AmbientBg with FluidBg
+- Modified `app/page.tsx` - Updated section IDs to #hero, #about, #gallery, #reviews, #connect
+- Deleted `components/ui/ambient-bg.tsx` - Replaced by fluid-bg.tsx
+
+### Interactive Portfolio v5 — Photographer & Videographer
+- Rewrote `components/sections/hero.tsx` — Video background, "Filmmaker & Visual Storyteller" dual identity typography
+- Created `components/ui/lightbox-modal.tsx` — Fullscreen media popup with image sliding, video playback & GSAP animate-in
+- Rewrote `components/sections/gallery.tsx` — Work Vault collection cards (Weddings, Corporate, Short Films) with click-to-open handlers
+- Modified `components/ui/custom-cursor.tsx` — Shows "VIEW COLLECTION"/"PLAY FILM" badge on gallery card hover
+- Simplified `components/ui/fluid-bg.tsx` — Fixed warm charcoal gradient with subtle GSAP shift (removed ScrollTrigger complexity)
+- Rewrote `components/sections/about.tsx` — Clean editorial introduction with staggered fade-in
+- Modified `app/page.tsx` — Added lightbox state management, wired Gallery onOpenCollection to LightboxModal
+
+### Responsive Portfolio v6 — Mobile-First & Advanced Lightbox
+- Rewrote `components/sections/hero.tsx` — Gradient mesh entity backdrop with GSAP infinite pulse, photographer portrait, `flex-col-reverse md:flex-row` responsive layout
+- Rewrote `components/ui/lightbox-modal.tsx` — Custom play button (hidden native controls), GSAP crossfade slide transitions for prev/next navigation
+- Rewrote `components/layout/navbar.tsx` — Mobile hamburger button with fullscreen overlay menu + staggered GSAP link animations
+- Simplified `components/ui/custom-cursor.tsx` — Removed label badge, clean inertial cursor with scale on hover only
+- Modified `components/sections/gallery.tsx` — Fluid broken-grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-12`), responsive `py-16 md:py-32`
+- Modified `components/sections/about.tsx` — Responsive spacing (`py-24 md:py-48`), fluid typography
+- Modified `components/sections/feedback.tsx` — Responsive padding, mobile-friendly grid
+- Modified `components/sections/contact.tsx` — Responsive bold footer layout, adaptive button sizes
+
+### Multi-Language & Theme Engine v7 — EN/BM + Dark/Light/System
+- Created `context/language-theme-context.tsx` — Global provider managing Language (EN/BM) with full dictionary (navbar, hero, about, gallery, feedback, contact, lightbox) and Theme (Dark/Light/System) with system color scheme sync
+- Modified `app/layout.tsx` — Wrapped app with LanguageThemeProvider
+- Rewrote `components/ui/fluid-bg.tsx` — 3 large blurred floating circles (amber, orange, stone) animated with GSAP infinite slow path
+- Rewrote `components/layout/navbar.tsx` — Added EN/BM toggle and theme cycle buttons in desktop pill + mobile overlay
+- Modified `components/sections/hero.tsx` — Localized headers, subtitle, buttons, scroll text via context
+- Modified `components/sections/about.tsx` — Translated label, heading, paragraph
+- Modified `components/sections/gallery.tsx` — Translated title, subtitle, category labels (Photography/Videography)
+- Modified `components/ui/lightbox-modal.tsx` — Mobile-safe close button (top-4 right-4), strict media bounds (max-h-[75vh] max-w-[90vw]), custom play button with ping ring animation, translated close/videography/of labels
+- Modified `components/sections/feedback.tsx` — Translated all review quotes, authors, roles, and section title
+- Modified `components/sections/contact.tsx` — Translated heading, description, form placeholders, send button, copyright
+
+### Performance Optimization v8 — Smoothness & Frame Rate Fixes
+- Optimized `components/ui/custom-cursor.tsx` — Replaced per-frame `gsap.to()` with `gsap.quickSetter()` + `requestAnimationFrame` lerp, added `{ passive: true }` to all event listeners, reduced GC pressure by eliminating tween object creation on every mousemove
+- Optimized `components/ui/fluid-bg.tsx` — Removed expensive `mix-blend-screen` compositing, reduced `blur-[150px]` to `blur-[100px]`, added `will-change-transform` to all circles, used `querySelectorAll` + reusable random function for GSAP targets
+- Optimized `components/sections/gallery.tsx` — Consolidated 6 individual ScrollTriggers into a single timeline with stagger, added `force3D: true`, added `loading="lazy"` to all gallery images, removed per-card `useRef` array
+- Optimized `components/sections/hero.tsx` — Added `force3D: true` to continuous glow pulse and timeline defaults, added `will-change-transform` to glow element
+- Optimized `components/sections/about.tsx` — Added `force3D: true` to ScrollTrigger animation
+- Optimized `components/sections/feedback.tsx` — Replaced per-card `useRef` array with `querySelectorAll('.feedback-card')` + single ScrollTrigger timeline, added `force3D: true`
+
+### Deep Performance Overhaul v9 — Zero RAF, Zero Blend-Mode, Zero Paint Jank
+- Rewrote `components/ui/fluid-bg.tsx` — Removed all GSAP/JS animation (static blur circles only), eliminated continuous GPU paint caused by `blur + transform` composition
+- Rewrote `components/ui/custom-cursor.tsx` — Removed `requestAnimationFrame` loop entirely (was running 60fps continuously), now purely event-driven: mousemove sets `transform` directly, follower trailing achieved via CSS `transition: transform 0.3s ease-out` instead of JS lerp
+- Rewrote `components/sections/hero.tsx` — Removed GSAP infinite glow pulse (blur + scale animation was triggering repaint), static glow only; removed `transition-colors` from CTA buttons (instant style swap); removed `animate-bounce` scroll indicator
+- Rewrote `components/sections/gallery.tsx` — Removed `transition-colors` from cards (was causing repaints on hover), removed `animate-ping` from video play button (CSS animation overhead)
+- Simplified `components/sections/about.tsx` and `feedback.tsx` — Cleaned ScrollTrigger callbacks
+
+### PLANNING.md Execution v10 — GSAP quickTo Cursor, GPU Animated Fluid BG, Hero Glow Pulse, Cinematic Section Opacity, Removed Language/Theme Engine
+- Rewrote `components/ui/custom-cursor.tsx` — Switched to `gsap.quickTo()` for x/y position tracking (GSAP-managed transform composition), hover scale via `gsap.to()` with GSAP's internal `_gsTransform` tracking (all properties compose into a single `transform` string), no RAF loop, no React state for position
+- Rewrote `components/ui/fluid-bg.tsx` — Restored GSAP animation but limited to `x`, `y`, `scale` only (GPU-composited transforms, no blur animation, no `mix-blend-mode`), infinite yoyo floating via `sine.inOut`, `will-change-transform` on all circles
+- Rewrote `components/sections/hero.tsx` — Restored GSAP infinite glow pulse (`scale: [1, 1.1], duration: 6, repeat: -1, yoyo: true`) with `will-change-transform` on gradient backdrop, removed `useLanguageTheme` dependency, hardcoded English text
+- Rewrote `components/sections/about.tsx` — Removed `useLanguageTheme`, hardcoded English content, preserved ScrollTrigger reveal
+- Rewrote `components/sections/gallery.tsx` — Removed `useLanguageTheme`, hardcoded English category labels, preserved collection data and ScrollTrigger
+- Rewrote `components/sections/feedback.tsx` — Removed `useLanguageTheme`, hardcoded English reviews array, preserved `querySelectorAll` ScrollTrigger pattern
+- Rewrote `components/sections/contact.tsx` — Removed `useLanguageTheme`, hardcoded English form labels and contact details
+- Rewrote `components/ui/lightbox-modal.tsx` — Removed `useLanguageTheme`, removed `animate-ping` from play button per plan, hardcoded English labels
+- Rewrote `components/layout/navbar.tsx` — Removed `useLanguageTheme`, removed EN/BM toggle and theme cycle buttons, hardcoded English nav labels
+- Modified `app/layout.tsx` — Removed `LanguageThemeProvider` wrapper
+- Deleted `context/language-theme-context.tsx` — Removed entire language/theme engine (no longer in scope)
+- Modified `app/page.tsx` — Added cinematic section opacity ScrollTrigger: all `section[id]` elements fade from opacity 0.3→1 on enter viewport and reverse on leave via `scrub: true`, with `will-change: opacity, transform` set programmatically
+
+### Polish v11 — Gradient Visibility, Smooth Animations, Language/Theme Restored, Lightbox Fixes
+- Rewrote `components/ui/fluid-bg.tsx` — Completely static (no GSAP), base changed to `bg-gradient-to-b from-[#292524] via-[#1c1917] to-[#0c0a09]` for visible warm-to-dark gradient, blurred circles at `opacity-50` `blur-[120px]` for more atmosphere
+- Rewrote `components/sections/hero.tsx` — Removed GSAP infinite `scale` glow pulse (was causing blur+transform jank), restored `useLanguageTheme()` with `t.xxx` translations, changed bg to `bg-black/40` so gradient shows through
+- Rewrote `components/sections/about.tsx` — Changed bg to `bg-[#1c1917]/60` for semi-transparency, restored `useLanguageTheme()` with translated content
+- Rewrote `components/sections/gallery.tsx` — Changed bg to `bg-black/40` for semi-transparency, restored `useLanguageTheme()` with translated category labels
+- Rewrote `components/sections/feedback.tsx` — Changed bg to `bg-[#1c1917]/60` for semi-transparency, restored `useLanguageTheme()` with translated reviews
+- Rewrote `components/sections/contact.tsx` — Changed bg to `bg-black/40` for semi-transparency, restored `useLanguageTheme()` with translated form labels
+- Rewrote `components/ui/lightbox-modal.tsx` — Fixed play icon triangle centering: changed SVG path to `M8 4v16l13-8z` (perfectly centered centroid at x=12 in 24×24 viewBox), removed `ml-1.5` hack. Close button: removed "Close" text, shows crossmark only. Smooth fade-out for play button via GSAP (`opacity:0, scale:0.8, 0.3s`) before setting `videoPlaying`. Matched close/open durations (0.35s `power3.inOut` easing), added `will-change: opacity, transform` inline on overlay+panel. Restored `useLanguageTheme()`.
+- Recreated `context/language-theme-context.tsx` — Full EN/BM dictionary + dark/light/system theme + `localStorage` persistence (identical to previous implementation)
+- Rewrote `components/layout/navbar.tsx` — Restored `useLanguageTheme()`, EN/BM toggle button, and theme cycle button in both desktop pill and mobile overlay
+- Modified `app/layout.tsx` — Re-wrapped children with `<LanguageThemeProvider>`
+- Modified `app/globals.css` — Added `@custom-variant dark (&:where(.dark, .dark *));` for Tailwind v4 class-based dark mode support
+
+### Smooth Crossfade Carousel v12
+- Rewrote image carousel in components/sections/gallery.tsx - Replaced abrupt key-based img swap with proper crossfade: tracks currentSrc/outgoingSrc separately, outgoing image animates out via fadeOut CSS keyframe while new image fades in via fadeIn, outgoingSrc cleared after 500ms transition completes
+- Modified app/globals.css - Added @keyframes fadeOut (opacity 1 to 0) to support the crossfade
+
+### Removed Review Translations
+- Modified components/sections/feedback.tsx - Hardcoded REVIEWS array, removed dependency on t.feedback.reviews
+- Modified context/language-theme-context.tsx - Removed ReviewDict interface and reviews from feedback dictionary; feedback now has only title
+
+### Review Collection Popup
+- Rewrote components/sections/feedback.tsx - Added optional collection field (ReviewMedia[]) to each review; photo gallery button at bottom-right of cards (opacity-0 group-hover:opacity-100); ReviewLightbox modal with image/video display, prev/next nav, keyboard support, GSAP open/close
+- Rewrote ReviewLightbox in components/sections/feedback.tsx - Smooth crossfade on image switch (fadeOut/fadeIn keyframes), mixed image+video collections, video auto-play on switch, Video badge indicator
+- Updated components/sections/feedback.tsx - ReviewMedia type now includes 'youtube'; replaced direct video URLs with YouTube embed IDs (dQw4w9WgXcQ, jNQXAC9IVRw); ReviewLightbox renders YouTube iframe with autoplay for 'youtube' type
+
+### Tool Marquee Background in About
+- Rewrote components/sections/about.tsx - Tool marquee positioned on right side (w-56 md:w-64), full section height, 30deg rotation with origin right center; 12 tools in 3-col rows; bigger logos (size-14 md:size-16); lower max opacity (0.3); 4x duplicated content for seamless infinite scroll via CSS keyframe
+
+## [2026-05-20]
+
+### Tool Marquee Speed & Layout Overhaul
+- Modified `components/sections/about.tsx` — Replaced uniform row scaling with per-column varied scales/opacities via `ROW_LAYOUTS` (4 distinct patterns: small/medium/small → large/small/full → etc.) for organic uneven grid
+- Modified `components/sections/about.tsx` — Increased logo sizes from `size-14 md:size-16` to `size-16 md:size-20`
+- Modified `components/sections/about.tsx` — Switched tool strip from centered `absolute inset-0` to right-anchored `absolute right-0` with `transform-origin: right center`
+- Modified `components/sections/about.tsx` — Reduced GSAP duration from 60s to 12s for faster marquee scroll
+- Modified `components/sections/about.tsx` — Increased row/column gaps (`gap-10 md:gap-12` rows, `gap-8 md:gap-10` items)
+- Fixed `components/sections/about.tsx` — Removed inner `overflow-hidden` from strip wrapper (was clipping rotated strip edges causing visible artifacts)
+- Fixed `components/sections/about.tsx` — Increased strip content to 4 copies with `yPercent: -25` for truly seamless infinite loop (no restart visible)
+- Fixed `components/sections/about.tsx` — Replaced `yPercent` with pixel-precise `y` animation using `offsetTop` gap calculation between first- and second-copy first rows; `onComplete` instant-resets via `gsap.set({ y: 0 })` — eliminates any sub-pixel misalignment at the loop boundary
+- Fixed `components/sections/about.tsx` — Switched from recursive `onComplete` scroll to `repeat: -1` tween (no frame gap between cycles); changed wrapper from `flex items-center` to `top-0 h-full overflow-hidden` so strip starts at section top and content flows upward from below the visible area
+- Fixed `components/sections/about.tsx` — Restored `flex items-center` centering on wrapper; switched from `right-0` to `inset-0` + `justify-center` for proper centering on desktop
+- Fixed `components/sections/about.tsx` — Added CSS `mask-image` with vertical gradient (`transparent → black 20% → black 80% → transparent`) to fade logos in at bottom and out at top, hiding the loop boundary
+- Modified `components/sections/about.tsx` — Expanded TOOLS from 12 to 24 items (added Capture One, Pro Tools, Logic Pro, Unity, Maya, Cinema 4D, CorelDRAW, Sketch, Affinity, Luminar, Photomatix, Houdini)
+- Modified `components/sections/about.tsx` — Changed from 3-column to 6-column row layout (4 rows per copy); redesigned ROW_LAYOUTS with center-peaked scales where rightmost logos are always smallest (0.15–0.3 range)
+- Fixed `components/sections/about.tsx` — Redesigned ROW_LAYOUTS with more extreme/varied per-row patterns for a "random" feel; expanded STRIP_CONTENT to 6 copies (up from 4) for more buffer; widened mask gradient to 30% fade zones; increased translateX to 40% for stronger rightward offset
+- Fixed `components/sections/about.tsx` — Replaced `repeat: -1` with DOM-shuffling infinite scroll: after each cycle the first copy (4 rows) is moved to the end via `appendChild`, then `y` is reset to 0. The visual content never changes at the reset point because the DOM rearranges to match what was already visible — truly seamless
+- Fixed `components/sections/about.tsx` — Combined `repeat: -1` + `onRepeat` with opacity blink: GSAP internally snaps y to 0, then onRepeat instantly sets opacity→0, moves DOM, restores opacity→1 + y→0 — all synchronous in one tick, browser paints only the final correct state with no stale frame or visible jump
+- Replaced GSAP strip loop with CSS `@keyframes toolScroll` animation (`components/sections/about.tsx` + `app/globals.css`): removed all GSAP `to()` + `repeat` + DOM manipulation + opacity blink. CSS animation runs on GPU compositor thread via `will-change: transform` with `animation: toolScroll 10s linear infinite`. Exact scroll percentage computed via `useLayoutEffect` using pixel-precise `offsetTop` difference, set as `--scroll-pct` custom property. No JavaScript, no reflow, no event loop gaps between iterations.
+
+## [2026-05-21]
+
+### Responsive Audit & Mobile Polish
+- Fixed `components/ui/custom-cursor.tsx` — Wrapped cursor elements in `hidden lg:block` to hide on touch devices
+- Fixed `components/layout/navbar.tsx` — Added `document.body.style.overflow = 'hidden'` when mobile menu opens, restores on close/unmount
+- Fixed `components/sections/hero.tsx` — Reduced flex gap from `gap-12` to `gap-8 md:gap-12` for tighter mobile layout
+- Fixed `components/sections/gallery.tsx` — Added intermediate `md:row-span-2` (index 0) and `md:col-span-2` (index 5) breakpoints for better 2-column tablet layout
+- Fixed `components/sections/feedback.tsx` — Increased ReviewLightbox close button from `size-8` to `size-10` for better mobile touch target
+- Fixed `components/ui/lightbox-modal.tsx` — Increased fullscreen buttons from `size-7` to `size-10` (mobile) for better touch targets; SVG icons scaled to `size-5 md:size-4`
+- Fixed `components/ui/fluid-bg.tsx` — Hidden blur blobs on mobile via `max-md:hidden` to reduce GPU compositing load on low-end devices
+
+## [2026-05-22]
+
+### Review Lightbox Centering Fix (Landing Page)
+- Modified `components/sections/feedback.tsx` — Rendered `ReviewLightbox` using `createPortal(..., document.body)` so its `fixed` overlay is no longer constrained by transformed section ancestors from page scroll animations
+- Modified `components/sections/feedback.tsx` — Increased Review lightbox overlay stack level from `z-50` to `z-[80]` to ensure modal appears above the fixed navbar
+
+### Share Your Experience Modal Centering Fix (Mobile + Landing Page)
+- Modified `components/ui/submit-review-modal.tsx` — Rendered modal via `createPortal(..., document.body)` so fixed centering is not affected by transformed section ancestors
+- Modified `components/ui/submit-review-modal.tsx` — Changed overlay layout from mobile bottom-sheet (`items-end`) to full centered modal (`items-center`) on all breakpoints
+- Modified `components/ui/submit-review-modal.tsx` — Updated modal shell from `rounded-t-xl` mobile sheet style to consistently centered `max-w-md rounded-xl` dialog
+- Modified `components/ui/submit-review-modal.tsx` — Raised overlay stack level from `z-50` to `z-[80]` so it sits above navbar and section UI
+
+### Admin Panel — Login & Dashboard
+- Created `components/ui/button.tsx` — shadcn-style Button component with variants (default, destructive, outline, secondary, ghost, link) and sizes (default, sm, lg, icon)
+- Created `components/ui/card.tsx` — shadcn-style Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter components
+- Created `components/ui/input.tsx` — shadcn-style Input component with dark theme styling
+- Created `components/ui/separator.tsx` — shadcn-style Separator/Divider component
+- Created `components/ui/avatar.tsx` — shadcn-style Avatar component with image/initials fallback
+- Created `lib/utils.ts` — cn() utility with clsx + tailwind-merge
+- Created `app/admin/layout.tsx` — Clean admin layout (no FluidBg, no CustomCursor, no nav/footer)
+- Created `app/admin/page.tsx` — Redirects to /admin/login
+- Created `app/admin/login/page.tsx` — Login card with GSAP entrance animation, localStoragedummy auth (admin/admin123), shake animation on error
+- Created `app/admin/dashboard/page.tsx` — Profile card (name, email) + Social Links card (X, IG, Threads, TikTok, WhatsApp URLs), Sign Out button, GSAP staggered entrance
+
+### Admin Panel v4 — Component Restructure & Fixed Sidebar Scroll
+- Created `components/admin/admin-header.tsx` — Extracted header into separate component with theme toggle (sun/moon), sidebar toggle (chevron/hamburger), sign out button (desktop text + mobile icon)
+- Created `components/admin/admin-sidebar.tsx` — Extracted DesktopSidebar (`w-56`/`w-14` collapsible, `transition-[width]`, `overflow-hidden`) and MobileSidebar (`fixed` overlay with backdrop blur, `transition-transform`, `overflow-y-auto` for scroll) as separate components
+- Rewrote `app/admin/dashboard/page.tsx` — Dashboard now composes AdminHeader + DesktopSidebar/MobileSidebar + main content. Container uses `h-[calc(100vh-3.5rem)]` instead of `flex-1` so sidebar stays pinned at viewport height (minus header) — never grows with content, never scrolls. Only `<main>` with `overflow-y-auto` scrolls independently. Fixed improper sidebar scroll behavior.
+- Rewrote `app/admin/layout.tsx` — Now a client component with `AdminThemeContext.Provider`; manages `light`/`dark` CSS vars via `useAdminTheme()` hook; styles persisted in localStorage; `transition-colors duration-300` on wrapper for smooth switching. Added inline `<script>` (`dangerouslySetInnerHTML`) that reads `localStorage` synchronously during HTML parsing and applies dark CSS vars before first paint — eliminates theme flash on hard refresh
+- Rewrote `app/admin/dashboard/page.tsx` — Collapsible sidebar: on desktop (`lg+`) toggles between `w-56` (expanded) and `w-14` (icons only) via `transition-[width,transform] duration-300` with `will-change: width` and `overflow-hidden` for smooth GPU-accelerated transitions; collapsed state applies `justify-center px-0` to nav buttons so icons stay perfectly centered; text labels use `hidden` in collapsed mode (no layout shift). On mobile renders as slide-in overlay with backdrop blur, hamburger toggle in header. All hardcoded stone colors replaced with CSS vars for theme awareness. GSAP staggered entrance, theme toggle button in header (sun/moon icons), mobile sign-out icon button.
+- Updated `app/admin/login/page.tsx` — Added theme toggle button (absolute top-right corner); login button uses CSS vars (`bg-[var(--text)] text-[var(--bg-end)]`); imports `useAdminTheme` from layout for theme access
+
+### Admin Panel v5 — Scheduling Page with Calendar & Booking Management
+- Installed `react-day-picker` + `date-fns` (~20KB combined, tree-shaken, loaded only on `/admin/schedule`)
+- Created `components/ui/calendar.tsx` — shadcn-style Calendar wrapping `react-day-picker` v9; uses CSS vars for theme consistency; custom Chevron component; lightweight at ~12KB
+- Created `app/admin/schedule/page.tsx` — Full scheduling page with: responsive two-column layout (calendar left / bookings right on desktop, stacked on mobile); date filtering; booking cards with time/name/service/status badge; "+ New Booking" dialog with form (name, email, phone, time, service chips, notes textarea); click booking card to edit/delete; status toggle (pending/confirmed/cancelled); GSAP staggered entrance; localStorage persistence with 5 dummy bookings preloaded across several dates
+- Refactored `components/admin/admin-sidebar.tsx` — Now uses `useRouter` + `usePathname` for link-based navigation; added `scheduling` item with CalendarIcon; each item has `href` pointing to route; active state derived from URL pathname; `DesktopSidebar` and `MobileSidebar` no longer require `activeSection` prop
+
+### Admin Panel v5.1 - Bigger & Better Scheduling Page
+- Redesigned schedule page: full-width stats bar (4 cards), calendar bumped to 380-420px in a bordered card, booking cards redesigned as horizontal blocks with time sidebar + contact details + inline clickable status chips
+- Bumped calendar day buttons to 40px and padding to p-4 for a more substantial feel
+
+### Admin Panel v5.2 - Col-4/Col-8 Layout & Premium Stats
+- Switched schedule layout from fixed-width calendar to proportional lg:w-4/12 (calendar) / lg:w-8/12 (bookings)
+- Redesigned stats cards: icon + number layout with colored SVGs (calendar/today/week/pending) in a button-style icon box
+- Removed unused ChevronRightIcon and unused date-fns imports
+
+### Admin Panel v6 - Shared AdminPageShell + AdminPageHeader
+- Created components/admin/admin-page-layout.tsx: AdminPageShell (consistent container with space-y-6 px-4 py-6 md:px-6 md:py-8) and AdminPageHeader (title + description + actions slot)
+- Refactored dashboard page to use AdminPageShell + AdminPageHeader (Profile page title with description)
+- Refactored schedule page to use AdminPageShell + AdminPageHeader (Scheduling page title with actions)
+
+### Dialog DatePicker + Component Extraction v13 — Performance Fixes
+- Created `app/admin/schedule/types.ts` — Shared types (Booking, FormData) and constants (SERVICES, STATUS_STYLES, STATUS_HOVER, STATUS_LABELS, EMPTY_FORM) extracted from page
+
+## [2026-06-01]
+
+### Messages Table Visual Alignment
+- Modified `app/admin/messages/page.tsx` - Updated the messages table shell, header, row spacing, and alternating row treatment to match the review-list table design while keeping the existing selection behavior and detail panel
+
+### Messages Table Responsive Modal View
+- Modified `app/admin/messages/page.tsx` - Replaced the side detail column with a responsive modal for viewing message details, removed the desktop view column, and added a mobile card layout alongside the review-style desktop table
+
+## [2026-05-31]
+
+### PostgreSQL + Prisma 7 Foundation
+- Created `prisma/schema.prisma` data model for production entities (`AdminUser`, `Booking`, `Review`, `ReviewMedia`, `VaultCollection`, `VaultMedia`, `SocialLink`, `SiteContent`) with Postgres datasource provider
+- Created `prisma.config.ts` with Prisma 7 config API (`defineConfig`) and migrations path; datasource URL now read from environment via config (Prisma 7 compatible)
+- Created `lib/server/db/client.ts` singleton Prisma client using `@prisma/adapter-pg` (`PrismaPg`) for runtime Postgres connections
+- Updated `package.json` scripts with DB workflow commands: `db:generate`, `db:migrate`, `db:deploy`, `db:push`, `db:studio`, `db:status`
+- Updated `.env.example` with explicit local/prod Postgres variable template (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DATABASE_URL`, `DIRECT_URL`, `SHADOW_DATABASE_URL`)
+- Updated `.env.local` with local Postgres placeholders and URL wiring
+- Created `docs/postgres-prisma-setup.md` with Laravel-style migration workflow and local-to-production setup guidance
+- Installed Prisma runtime adapter dependencies `@prisma/adapter-pg` and `pg`
+- Added `dotenv` and updated `prisma.config.ts` to explicitly load `.env.local` for Prisma CLI commands
+- Validated Prisma client generation: `db:generate` succeeds on Prisma 7
+- Validated Prisma config loading: `db:status` now connects to configured datasource but currently fails auth (`P1000`) until correct Postgres role credentials are created/updated
+
+### Admin Login Production Hardening (DB-Backed)
+- Updated `prisma/schema.prisma` `AdminUser` model to match current profile UI requirements (`fullName`, `email`, `avatarUrl`, `isActive`, `lastLoginAt`) while preserving secure auth fields (`username`, `passwordHash`, `role`)
+- Created `lib/server/password.ts` with secure salted scrypt hashing and timing-safe password verification
+- Rewrote `app/api/auth/login/route.ts` to authenticate against database users instead of plain env comparison
+- Added safe first-admin bootstrap flow in `app/api/auth/login/route.ts`: when `admin_users` is empty, first successful login using `ADMIN_USERNAME`/`ADMIN_PASSWORD` creates initial admin record with hashed password
+- Added profile bootstrap env support in auth flow (`ADMIN_FULL_NAME`, `ADMIN_EMAIL`)
+- Updated `.env.example` and `.env.local` to include `ADMIN_FULL_NAME` and `ADMIN_EMAIL`
+- Verified zero diagnostics in edited auth and password files
+- Revalidated Prisma generation after schema/auth changes (`db:generate` successful)
+- Attempted migration and status checks after switching DB user to `root`, but Postgres auth remains blocked with `P1000` until valid DB credentials are supplied
+- Created `app/admin/schedule/dialog.tsx` — Extracted full booking dialog (create/edit, date picker with Popover+Calendar, form fields, status toggle, delete action) into 218-line component; isolated from page state so form changes don't re-render calendar or right panel
+- Created `app/admin/schedule/right-panel.tsx` — Extracted right panel (date label, bookings list, status chips, edit button, empty state) into 134-line memo-capable component
+- Refactored `app/admin/schedule/page.tsx` — Reduced from 894 to 481 lines: now composes CalendarGrid (memo), StatsCards (memo, new), RightPanel, and ScheduleDialog. Removed all inline dialog/panel JSX. Minimal orchestrator only.
+- Created `StatsCards` memo component in page.tsx — Inline memoized stats display, re-renders only when bookings data changes (not on dialog open/close or form changes)
+- Removed `initialFocus` prop from Calendar (was causing TypeScript error — not in react-day-picker v9 DayPickerProps)
+- Fix: `FormData` type now imported from types.ts (was breaking build after extraction)
+
+### Shadcn TimePicker + Smooth DatePicker Close v14 — UX Polish
+- Updated `components/ui/popover.tsx` — Added `open`/`onOpenChange` controlled props (default uncontrolled if omitted), `useCallback`-wrapped `setOpen` for stable identity; backward compatible
+- Created `components/ui/time-picker.tsx` — shadcn-style TimePicker using Popover + scrollable time slot list (8:00–20:00, 30-min intervals). Clock icon on trigger, closes on slot select, auto-scrolls to current value on open. Custom thin scrollbar styling
+- Updated `app/admin/schedule/dialog.tsx` — Date picker Popover now controlled with local `dateOpen` state; Calendar `onSelect` calls `setDateOpen(false)` immediately after picking to close the popover smoothly — no lingering dropdown. Replaced native `<input type="time">` with TimePicker component
+
+### Stripped GSAP from Admin v15 — Zero JS Animation Jank
+- Removed `gsap` import + entrance `fromTo` stagger effect + `contentRef` from `app/admin/schedule/page.tsx` — admin content mounts instantly without JS-driven opacity tween
+
+### Landing Loader with Fav Branding
+- Created `components/ui/landing-page-loader.tsx` — full-screen branded loading overlay using `/fav.png` with animated rings/pulse and DB progress counter
+- Updated `app/(public)/page.tsx` — added landing data readiness coordinator that waits for About, Gallery, Feedback, and Contact initial fetch completion before hiding loader
+- Updated `components/sections/about.tsx`, `gallery.tsx`, `feedback.tsx`, and `contact.tsx` — added optional `onInitialDataReady` callback and robust `try/finally` initial-load signaling so loader exits cleanly even if one source fails
+
+### Landing Smoothness & Runtime Performance Pass
+- Optimized `app/(public)/page.tsx` — replaced scrubbed per-section opacity animation with one-time reveal triggers and reduced-motion fallback to cut continuous repaint load during scroll
+- Optimized `components/sections/about.tsx` — story-loop marquee now pauses when About section is offscreen and fully disables motion for users with reduced-motion preference
+- Optimized `components/sections/hero.tsx` — added reduced-motion bypass, paused/resumed spinning ring based on viewport visibility, and switched portrait to optimized `next/image` with priority sizing
+- Optimized `components/sections/gallery.tsx` — reduced media overhead via `preload=metadata` for videos and async/low-priority image decoding hints for carousel frames
+
+### DB Social Links + Public Profile Integration
+- Extended `prisma/schema.prisma` `SocialLink` model with `isVisible` so each social URL can be hidden from the landing page without deleting the record
+- Added `app/api/admin/social-links/route.ts` support for persisting both URL and visibility state, plus returned visibility data to power the admin UI switch
+- Added `app/api/public/social-links/route.ts` filtering so the landing page only renders social links marked visible in the DB
+- Added `app/api/public/profile/route.ts` and `fetchPublicAdminProfile()` so the landing hero/contact can use the DB-backed admin profile picture and email
+- Updated `app/admin/social/page.tsx` to expose per-platform visibility switches alongside URL fields with responsive card layout
+- Updated landing `Hero` and `Contact` sections to consume DB profile data instead of hardcoded fallbacks, keeping the landing data flow centralized
+- Updated `app/api/admin/profile/route.ts` and `app/admin/profile/page.tsx` so profile edits now sync to the `admin_users` table and the landing page can reflect the current admin avatar/email from the database
+- Hardened public/admin social-links GET routes with safe default payloads so an empty or temporarily unavailable DB no longer bubbles a 500 to the landing page
+
+### Personal Vault Categories (DB-Backed CRUD)
+- Added `VaultCategory` model in `prisma/schema.prisma` and created migration `prisma/migrations/20260531195000_vault_categories/migration.sql` with seeded categories: Wedding Photography, Event Videography, Corporate Shoot, Short Film, Image Tracing, Logo Design, Poster Design, Graphic Design
+- Created category API routes `app/api/admin/vault-categories/route.ts` and `app/api/admin/vault-categories/[id]/route.ts` for list/create/rename/delete with duplicate checks, slug generation, usage counting, and delete protection while in use
+- Created `lib/services/admin-vault-categories.ts` and extended `types/content.ts` with `VaultCategoryItem` for admin client integration
+- Updated `app/admin/gallery/vault/page.tsx` to use DB categories for filter/select, added category manager modal (add/edit/delete), and removed hardcoded Photography/Videography-only assumptions in summary/filter behavior
+- Updated `app/api/admin/vault/route.ts` and `app/api/admin/vault/[id]/route.ts` to validate create/update category values against active managed categories in DB
+- Ran `npm.cmd run db:generate` and `npm.cmd run db:deploy` to regenerate Prisma client and apply category migration successfully
+
+### Google Drive Production Integration
+- Installed `googleapis` dependency for Google Drive v3 API integration
+- Created `lib/server/google-drive.ts` — service-account auth loader (base64 JSON/raw JSON/file/email+private-key), Drive client singleton, upload helper, stream download helper, and unified Google error extraction
+- Created `app/api/media/upload/route.ts` — admin-authenticated multipart upload endpoint with max-size guard and Drive upload response (`driveViewUrl`, `driveDownloadUrl`, `proxyUrl`)
+- Created `app/api/media/[fileId]/route.ts` — media proxy endpoint that streams Google Drive content through Next.js Route Handler with cache and download disposition support
+- Added production setup guide in `docs/google-drive-production-setup.md` for your `aizz-devop@image-gallery-497516.iam.gserviceaccount.com` service account and `image-gallery` folder workflow
+- Updated `.env.example` and `.env.local` with production-safe Drive secret strategies (`GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON_BASE64` recommended) and behavior flags
+- Added `.env.drive.example` dedicated template for Drive-related deployment variables
+
+### Admin Profile Picture Upload (Google Drive)
+- Updated `lib/constants.ts` profile model to include `avatarUrl` with backward-compatible defaults/merging for existing localStorage data
+- Updated `app/admin/profile/page.tsx` with profile image upload controls (`Upload New Photo`, `Reset to Default`) using `POST /api/media/upload`
+- Added upload state handling, image type validation, toast feedback, and immediate profile persistence after successful upload/reset
+- Updated `components/admin/admin-sidebar.tsx` to render avatar from saved profile (`profile.avatarUrl`) in desktop/mobile sidebar profile sections
+- Verified integration compiles and lints successfully via `cmd /c npm run lint`
+
+### Google Drive Upload 500 Fix (Env Credential Mode)
+- Fixed `.env.local` Google Drive credentials mode mismatch: cleared `GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON_BASE64` (was incorrectly set to file path) and enabled `GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE=./google-service-account.json`
+- This resolves JSON parsing/auth failure in `POST /api/media/upload` when using local service-account JSON file in project root
+- Removed `gsap` import + entrance `fromTo` stagger effect + `contentRef` from `app/admin/dashboard/page.tsx`
+- Removed `gsap` import + entrance `fromTo` + shake `timeline` + `cardRef`/`errorRef` from `app/admin/login/page.tsx` — replaced with pure CSS `animate-fade-in` (login card fade+slide on mount) and `animate-shake` (card shake on bad credentials), toggled via React state with 420ms timeout
+- Added `app/globals.css` — `--animate-fade-in` and `--animate-shake` theme tokens + `@keyframes shake` (6-step translateX oscillation)
+
+### Schedule Redesign v16 — Mobile-First, Simpler, Smoother
+- Refactored `app/admin/schedule/page.tsx` — Added `mobileTab` state ('calendar'|'bookings') with toggle button bar (hidden on lg+). Calendar section shows `hidden lg:block` when bookings tab active, vice versa. On desktop both columns render side by side as before.
+- Rewrote `app/admin/schedule/right-panel.tsx` — Simplified booking cards: time + name + status badge on one flex-wrapped line, service + email on second line, status chips below. Edit button always visible (no `opacity-0 group-hover`). Removed sticky header/footer complexity. Cleaner empty state.
+- Rewrote `app/admin/schedule/dialog.tsx` — Mobile-responsive: `items-end` (bottom-sheet) on mobile, `items-center` (centered modal) on desktop. Full-width with rounded top on mobile, `max-w-md` with full rounded on desktop. Larger touch targets on mobile (`h-10` vs `h-9`). Replaced TimePicker with native `<input type="time">` (styled with `[color-scheme:dark]`) — simpler, fewer DOM nodes, no JS dropdown.
+- Deleted `components/ui/time-picker.tsx` — No longer needed; native time input is more performant and mobile-friendly.
+
+## [2026-05-23]
+
+### Shadcn-style Time Picker for Admin
+- Created `components/ui/time-picker.tsx` — Popover-based time picker with scrollable hour (00-23) and minute (00/15/30/45) columns, styled consistently with date picker
+- Modified `app/admin/schedule/dialog.tsx` — Replaced native `<input type="time">` with new TimePicker component
+- Modified `components/ui/custom-cursor.tsx` — Disabled custom cursor on all `/admin` routes (returns null)
+
+### Smooth Calendar & Popover Animations
+- Modified `app/globals.css` — Added `--animate-popover-in` (0.15s ease-out scale+fade) and `@keyframes popoverIn` for smooth popover entrance
+- Modified `components/ui/popover.tsx` — Replaced broken tailwindcss-animate classes with working `animate-popover-in`
+- Modified `components/ui/calendar.tsx` — Added `transition-colors duration-150` to day buttons, today, selected days, and nav buttons for smooth hover/state transitions
+- Modified `components/ui/time-picker.tsx` — Added `transition-colors duration-150` to hour/minute buttons for smooth hover
+
+### Fix: Status change committed on Cancel
+- Modified `app/admin/schedule/types.ts` — Added `status?: Booking['status']` to `FormData` interface
+- Modified `app/admin/schedule/page.tsx` — `openEditBooking` now sets `formData.status`; `handleSave` applies status from formData on update
+
+## [2026-05-31]
+
+### Backend Phase 1 — Session Auth + Middleware Guard
+- Created `lib/server/admin-session.ts` — Added signed session token utilities (HMAC SHA-256 via Web Crypto), cookie constants, and token TTL helper
+- Modified `app/api/auth/login/route.ts` — Replaced hardcoded credentials with env-based auth (`ADMIN_USERNAME`, `ADMIN_PASSWORD`, `AUTH_SECRET`), generates signed admin session cookie, and sets non-sensitive UI auth-state cookie
+- Created `app/api/auth/logout/route.ts` — Added logout endpoint that clears both session and auth-state cookies
+- Created `app/api/auth/session/route.ts` — Added session verification endpoint returning `{ authenticated: boolean }`
+- Created `middleware.ts` — Added centralized admin route guard for `/admin/:path*`; redirects unauthenticated users to `/admin/login` and redirects authenticated users away from login to `/admin/dashboard`
+- Modified `lib/services/auth.ts` — Refactored to API-backed auth flow (`login`, `logout`, `checkSession`) and cookie-based client auth hint; retained last-page UX helpers
+- Modified `app/admin/login/page.tsx` — Migrated login logic to async API flow and session check via `/api/auth/session`
+- Modified `components/admin/admin-sidebar.tsx` — Updated sign-out flow to await server logout before navigation
+- Modified `app/admin/schedule/dialog.tsx` — Removed `onStatusChange` prop; status buttons use `onFormChange('status', s)` to defer changes until Save
+
+## [2026-05-23]
+
+### Dashboard Page, Basic Info Split & Session Persistence
+- Modified `components/admin/admin-sidebar.tsx` — Added Dashboard item (grid icon) at top, changed Basic Info href to `/admin/basic-info`, simplified `isActive` to 2 params
+- Created `app/admin/basic-info/page.tsx` — Profile settings moved from old dashboard (name, email, social links)
+- Rewrote `app/admin/dashboard/page.tsx` — Shadcn-style KPI dashboard with: time-based greeting, stats cards (Total/Pending/Confirmed/Cancelled), recent 5 bookings list, service distribution bars, quick actions. Reads from localStorage `admin_bookings`
+- Modified `app/admin/login/page.tsx` — After login checks `admin_last_page` from localStorage and redirects there (or dashboard default). Also applies on auto-redirect if already authed
+- Modified `app/admin/schedule/page.tsx` — Saves `/admin/schedule` as `admin_last_page` before redirect on expired session
+
+### Dashboard UI Upgrade — Charts & Visualizations
+- Rewrote `app/admin/dashboard/page.tsx` — Added three pure-SVG charts (zero dependencies):
+  - **MiniSparkline** in each stat card showing weekly trend
+
+### Vault/Review Admin Cleanup
+- Modified `app/admin/gallery/vault/page.tsx` — Removed collection reorder controls and helper copy from the Vault admin list so ordering is no longer editable there
+- Modified `app/admin/gallery/reviews/page.tsx` — Removed media reorder controls from the Review edit dialog to simplify collection management
+- Modified `app/globals.css` — Added themed global scrollbar styling plus stable scrollbar gutter so admin scroll panes no longer fall back to the raw browser scrollbar appearance
+
+### Admin Scrollbar Regression Fix
+- Modified `app/globals.css` — Removed the global visible scrollbar skin and replaced it with a reusable `.scrollbar-hidden` utility so the site returns to landing-page-style scroll behavior
+- Modified admin page/layout scroll containers — Applied `.scrollbar-hidden` to admin main panes, sidebars, dialogs, and media lists so the scrollbar no longer shows visually while scrolling still works
+
+### Vault/Review Save-State Hardening
+- Modified `app/admin/gallery/vault/page.tsx` — Removed the last remaining Vault media reorder controls inside the edit dialog and updated the page header copy to reflect management rather than reordering
+- Modified `app/admin/gallery/vault/page.tsx` — Save button now stays disabled until the collection has a title and at least one image or video
+- Modified `app/admin/gallery/reviews/page.tsx` — Save button now stays disabled until the required review fields (`author` and `quote`) are filled
+
+### Gallery Skeleton Polish
+- Modified `components/admin/gallery/gallery-loading-skeleton.tsx` — Refined Vault and Review skeleton placeholders with summary cards, filter-bar structure, and more varied widths so loading states better match the current layouts and feel less templated
+
+### Gallery Preview Responsiveness
+- Modified `app/admin/gallery/vault/page.tsx` and `app/admin/gallery/reviews/page.tsx` — Improved collection preview flow by preloading the first media asset before opening the lightbox, showing row-level loading feedback on the clicked preview button, and rendering an in-modal loading overlay while image/video content finishes loading
+
+### Admin Branding + Metadata Upgrade
+- Modified `app/admin/gallery/vault/page.tsx` and `app/admin/gallery/reviews/page.tsx` — Replaced deprecated Next/Image `onLoadingComplete` usage with `onLoad` in lightbox images
+- Modified `components/admin/admin-header.tsx` — Added `fav.png` logo in the header brand cluster and kept a clear collapse/expand control beside `Admin Panel` (menu icon on mobile)
+- Modified `app/layout.tsx` — Unified tab icon metadata to use `fav.png` for icon/shortcut/apple variants
+- Modified `app/admin/layout.tsx` — Added route-based admin tab title updates so browser tab title reflects current admin page
+- Created `lib/branding.ts` — Centralized brand name/admin name/icon path and mime type for easy future icon filename/type swaps (e.g., `fav.ico` later)
+
+### Sidebar Toggle Icon Refresh
+- Modified `components/shared/icons.tsx` and `components/admin/admin-header.tsx` — Replaced desktop arrow toggle with dedicated sidebar collapse/expand icons for clearer navigation affordance while keeping mobile menu icon behavior unchanged
+  - **WeeklyTrendChart** (SVG line chart) with dots + amber glow stroke
+  - **DonutChart** (SVG donut) for status breakdown with color legend
+  - **MonthlyBarChart** (SVG bars) for year overview, grouped by month
+  - All stat cards clickable (navigate to schedule); "View all" links on recent bookings and weekly trend
+  - Quick Actions row with "Manage Schedule" and "Edit Profile" buttons
+  - Animated stat values using `@number-flow/react`
+  - Replaced MonthlyBarChart with **DayOfWeekChart** (horizontal bars per day with gradient highlight on busiest day) + **Insights chips** (top service, busiest day, avg bookings/week)
+
+### Project Structure Restructure — Route Groups, Contexts, Icons, Constants, Services, API Layer
+- Created `app/(public)/layout.tsx` — Public route group with FluidBg, CustomCursor, LanguageProvider
+- Simplified `app/layout.tsx` — Fonts + html/body only (server component)
+- Moved `app/page.tsx` → `app/(public)/page.tsx`
+- Created `context/admin-theme-context.tsx` — Extracted AdminThemeProvider from admin layout
+- Simplified `app/admin/layout.tsx` — Now wraps with AdminThemeProvider only
+- Renamed `context/language-theme-context.tsx` → `context/language-context.tsx` — Hook renamed to `useLanguage()`, provider renamed to `LanguageProvider`
+- Updated all 8 import paths across section components, navbar, lightbox
+- Created `lib/constants.ts` — Single source for STATUS_STYLES, STATUS_CLASSES, STATUS_LABELS, SERVICES, STATUS_HOVER
+- Created `components/shared/icons.tsx` — 12 shared SVG icon components extracted from 6 files
+- Created `app/admin/schedule/_components/` — Moved dialog.tsx, right-panel.tsx, types.ts here
+- Created `lib/services/bookings.ts` — Booking CRUD abstraction (loadBookings, saveBookings, addBooking, updateBooking, deleteBooking, getBookingsByDate)
+- Created `lib/services/auth.ts` — Auth service (login, logout, isAuthenticated, getLastPage, setLastPage)
+- Created `app/api/auth/login/route.ts` — Login API endpoint
+- Created `app/api/bookings/route.ts` — Bookings API endpoint
+- Created `.env.local` — Config placeholder
+- Refactored admin pages (login, dashboard, schedule, basic-info) to use service layer
+- Refactored admin-header.tsx to use auth service
+- Updated types.ts to import constants from lib/constants instead of inline
+
+### Status Confirmation Dialog & Mobile Edit Button Fix
+- Added status change confirmation modal in schedule page (prevents accidental clicks)
+- Fixed right panel edit button touch target for mobile (`p-2 sm:p-1`, larger icon)
+
+### Sidebar Redesign — Collapsible Social Media + Profile Avatar
+- Rewrote `components/admin/admin-sidebar.tsx` — Collapsible "Social Media" parent with children (All Links, X, Instagram, Threads, TikTok, WhatsApp), Profile avatar at bottom with name, divider between main items and profile
+- Added `ShareIcon`, `ChevronDownIcon`, `LockIcon`, `ExternalLinkIcon`, `CheckIcon`, `AlertIcon` to `components/shared/icons.tsx`
+- Created `app/admin/profile/page.tsx` — Profile settings with name, email, and change password (new + confirm)
+- Created `app/admin/social/page.tsx` — Social Media dashboard grid with all 5 platform cards (inline edit + visit/edit buttons)
+- Created `app/admin/social/[platform]/page.tsx` — Dynamic route for individual platform URL editing with back navigation
+- Updated `lib/constants.ts` — Added `SOCIAL_PLATFORMS`, `loadSocialLinks`, `saveSocialLinks`, `loadProfile`, `saveProfile` helpers
+
+### Individual Social Media Dashboards — Per-Platform Analytics
+- Created `app/admin/social/_components/dummy-data.ts` — Per-platform dummy stats data (followers, posts, impressions, engagement rate) with 30-day growth curve, engagement by day, and top posts for each of the 5 platforms
+- Created `app/admin/social/_components/platform-dashboard.tsx` — Full dashboard component with:
+  - **StatsCards** (4 KPI cards: Followers, Posts, Impressions, Engagement Rate)
+  - **GrowthChart** (SVG line chart with 7D/30D/90D period toggle, gradient fill, hover tooltip)
+  - **EngagementByDay** (SVG bar chart for Mon–Sun engagement distribution)
+  - **TopPosts** (ranked list with rank badges, title, date, likes count)
+- Updated `app/admin/social/[platform]/page.tsx` — Integrated PlatformDashboard above the existing URL editing card; description changed to "analytics and settings"; removed unused `BackArrowIcon`
+
+### Chart Upgrade — Period Switcher, Tooltips & Donut Hover
+- Rewrote `WeeklyTrendChart` → `PeriodTrendChart` with:
+  - **Period tabs**: Week / Month / Year toggle
+  - **Navigation**: prev/next arrows with date label (weeks, months, years)
+  - **SVG bar chart** with hover tooltip showing exact count per bar
+  - Peak bar highlighted in amber with glow effect
+- Upgraded `DonutChart`:
+  - Clickable legend buttons with percentage display
+  - Hover highlight on segments (thicker stroke + glow)
+  - Total count centered in donut
+  - Native `<title>` tooltip on each segment showing "X bookings (Y%)"
+  - Responsive layout (side-by-side on desktop, stacked on mobile)
+
+### Per-Platform Dashboard Redesign — Proper Sizing & Platform-Appropriate Metrics
+- Reduced GrowthChart SVG height from 140 to 85 (compact 3.5:1 aspect ratio) with `max-h-40` container constraint — no more oversized charts
+- Replaced vertical engagement bar chart with horizontal bar chart matching admin dashboard's DayOfWeekChart pattern (`overflow-hidden rounded-full` bars) — always fits container width
+- Added platform-aware labeling: WhatsApp shows "Chats/Messages/Broadcasts/Response Rate" stats, "Messages Over Time" trend, "Response Time by Day" bars, "Recent Activity" list — content platforms retain "Followers/Posts/Impressions/Engagement Rate" with "Follower Growth" / "Engagement by Day" / "Top Posts"
+- Fixed x-axis labels: 7D view shows day names (Mon, Tue…), 30D/90D shows compact "M/D" format; increased padding and font size for readability
+- Removed redundant URL editing card from individual platform pages (users manage links from the All Links overview); header now shows "← All Links" button instead of Cancel/Save
+- Removed ~50 lines of unused imports, state, and handlers from `[platform]/page.tsx`
+
+## [2026-05-27]
+
+### Dashboard Period Filters & Stat Trends
+- Added `dashboardPeriod` state ('week'|'month'|'year') and `dashboardCursor` state to `app/admin/dashboard/page.tsx` with prev/next navigation
+- Added `Period` type to types (week/month/year), `computePeriodRanges` helper returning current + previous date ranges
+- Added `getPeriodData` helper returning current total + previous total for trend comparison
+- Added `getTrend` helper computing direction (up/down) and percentage from current vs previous
+- Added `periodStats` useMemo computing total/pending/confirmed/cancelled counts + trends for all 4 cards
+- Replaced static stat grid with period-filtered stats featuring NumberFlow + TrendingUpIcon/TrendingDownIcon arrows
+- Added period tab bar (Week/Month/Year) and navigation arrows with formatted date label (week start date, month name, year)
+- Added `PeriodBarChart` component — vertical bars for week/month, horizontal bars for year with peak amber highlight
+- Wrapped period line chart in Card component below stats grid
+
+### Schedule Stats Animated Values & Trends
+- Added `NumberFlow` to schedule page stats cards for smooth animated value transitions
+- Added `TrendingUpIcon`/`TrendingDownIcon` shared components
+- Added trend computation for Today (vs yesterday), This Week (vs last week), and Pending (vs last week pending)
+- Added trend arrows + percentage display next to stat values in StatsCards component
+- Extended `ScheduleStats` type with trend fields (`todayTrend`, `weekTrend`, `pendingTrend`)
+- Passed trends object to `StatsCards` component
+
+## [2026-05-27]
+
+### Dashboard Chart Consolidation — Single Period Filter for All Charts
+- Removed redundant **Period Breakdown** card + `PeriodBarChart` component (duplicated TrendLineChart's data)
+- Refactored `TrendLineChart` to remove internal period/cursor state — now accepts `period` and `cursor` as props, reading from the page-level single period filter
+- All charts now share one set of period controls (Week/Month/Year tabs + navigation arrows at top)
+- **DonutChart** now filters by selected period (not lifetime): only shows status breakdown for bookings in the current week/month/year
+- **DayOfWeekChart** now filters by selected period: only shows day-of-week distribution for the current period
+- **Recent Bookings** list now filters by selected period: shows only bookings from the current week/month/year
+- **Insights** chips (top service, busiest day) now computed from period-filtered bookings
+- Enlarged DonutChart: SVG `viewSize: 160→200`, `r: 58→78`, `max-w: 180px→240px`, centered with legend below instead of beside
+- Centered DonutChart card content with `flex items-center justify-center`
+- Removed `/admin/schedule` route "View all" button from TrendLineChart header, simplified to just a right-aligned link
+- Simplified `getPeriodData` helper to only compute totals (removed per-day values/labels logic that was only used by deleted PeriodicBarChart)
+- Cleaned up `periodStats` useMemo — removed redundant `inRange` closure with nested `computePeriodRanges` call
+
+### Social Platform Stats — NumberFlow Animated Values & Shared Trend Icons
+- Added `rawValue: number` to `StatCard` type in `types/social.ts` for NumberFlow support
+- Updated all 20 stat card entries in `app/admin/social/_components/dummy-data.ts` with raw numeric values
+- Updated `StatsCards` in `app/admin/social/_components/platform-dashboard.tsx`:
+  - Replaced plain `{card.value}` with `<NumberFlow>` using compact notation for all stats except "Avg. Watch Time" (time format preserved as plain text)
+  - Replaced inline SVG trend arrows with shared `TrendingUpIcon`/`TrendingDownIcon` components
+  - Added percentage suffix for engagement rate / response rate stats
+
+## [2026-05-27]
+
+### Admin Gallery Section — Personal Vault & Review Collection Pages
+- Added `FolderIcon`, `ImageIcon`, `ShuffleIcon` to `components/shared/icons.tsx` — new SVG icons for gallery sidebar and vault management
+- Refactored `components/admin/admin-sidebar.tsx` — Replaced hardcoded `socialOpen`/`setSocialOpen` with generic `openParents` record (supports gallery + social collapsible parents); added `useCallback`-wrapped `toggleParent` handler; added Gallery parent item with Personal Vault (`/admin/gallery/vault`) and Review Collection (`/admin/gallery/reviews`) children; collapsed-mode nav dynamically routes to first child via `item.children[0].href`
+- Created `lib/services/vault.ts` — Defines `VaultCollection` type (id, title, category, thumb, media, isVideo, videoUrl, columnSpan, rowSpan, order) with localStorage CRUD (`loadVaultCollections`, `saveVaultCollections`) and 6-item seed data matching the hardcoded gallery.tsx collections
+- Created `lib/services/reviews.ts` — Defines `AdminReview` and `ReviewMedia` types with localStorage CRUD (`loadReviews`, `saveReviews`) and 4-item seed data matching the hardcoded feedback.tsx reviews
+- Created `app/admin/gallery/vault/page.tsx` — Personal Vault admin page with:
+  - Reorderable collection list (move up/down buttons per row)
+  - Inline title editing, category selector, column span (2/3) and row span (1/2) toggles
+  - Column count selector (2 or 3 columns) and Randomize Order toggle + Shuffle Now button
+  - Edit dialog modal (full details: title, category, col/row span, thumbnail URL, video toggle, media URLs)
+  - Delete per collection
+  - Empty state with add prompt
+  - Responsive: horizontal row layout on desktop, stacked cards on mobile
+- Created `app/admin/gallery/reviews/page.tsx` — Review Collection admin page with:
+  - Desktop table view with columns: Author (name + role), Review (truncated quote), Attachments (count badge or em-dash for empty), Actions (view lightbox, edit, delete)
+  - Mobile card view with same fields and touch-friendly action buttons (44px+ targets)
+  - ReviewLightbox modal with GSAP open/close, image/video crossfade, keyboard navigation (Escape, arrows), fullscreen toggle
+  - EditReviewDialog modal for creating/editing reviews (author, role, quote, media URLs)
+  - Delete confirmation dialog
+  - Empty state with add prompt
+  - Handles empty collections (shows "—" on desktop, "No attachments" on mobile) — gallery icon button only rendered when attachments exist
+- All pages use existing admin patterns: `isAuthenticated` guard, `setLastPage` redirect, CSS variables for theme consistency, same border/button/hover classes, bottom-sheet on mobile / centered on desktop for modals
+
+## [2026-05-27]
+
+### Personal Vault UX Overhaul — Drag-and-Drop, shadcn Select, Clearer Layout Controls
+- Installed `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` — professional-grade drag-and-drop for React with keyboard accessibility, pointer/touch sensors, and drag overlay
+- Created `components/ui/select.tsx` — shadcn-style Select component built on existing Popover pattern (same as TimePicker). Trigger button with value + ChevronDownIcon, PopoverContent dropdown with scrollable option list, selected item highlighted with `bg-[var(--button-hover)]`. Accepts `value`, `options`, `onChange`, `placeholder`, `className` props
+- Added `GripIcon` to `components/shared/icons.tsx` — 6-dot grid icon for drag handle visual
+- Rewrote `app/admin/gallery/vault/page.tsx` — Major UX improvements:
+  - **Drag-and-drop reordering**: Replaced clunky up/down arrow buttons with `@dnd-kit` sortable list. Each row has a `GripIcon` drag handle (cursor-grab/cursor-grabbing). `PointerSensor` with 8px activation distance prevents accidental drags. `DragOverlay` shows a floating simplified card during drag. `onDragEnd` recalculates `order` and persists via `saveVaultCollections`. Keyboard sensor enables keyboard reordering
+  - **shadcn Select replacements**: All native `<select>` elements replaced with new `Select` component — category selector (Photography/Videography), card width (1/2/3 Columns), card height (1/2 Rows). Consistent Popover-based dropdown styling matching TimePicker pattern
+  - **Clearer labels**: Top control renamed from "Columns" to "Preview Grid" with "2 cols" / "3 cols" toggle buttons and descriptive title attributes. Per-card "Col"/"Row" renamed to "Card Width" (1 Column — Standard / 2 Columns — Wide / 3 Columns — Full Width) and "Card Height" (1 Row — Standard / 2 Rows — Tall). Edit dialog uses same Select components with full labels
+  - **Responsive layout**: Desktop (`md+`) shows compact horizontal row: drag handle → thumbnail → title input → category Select → width Select → height Select → action buttons. Mobile (`<md`) shows stacked card with drag handle at top, title input, category/width/height selects in vertical stack, and touch-friendly action buttons with text labels (Edit Details / Delete)
+- Enhanced `app/admin/gallery/vault/page.tsx` — Mobile UX & Touch Drag Improvements:
+  - Added `TouchSensor` from `@dnd-kit/core` with `delay: 300, tolerance: 5` for long-press-to-drag on mobile (separate from desktop `PointerSensor` with `distance: 8`)
+  - Mobile drag handle now shows "Hold & drag" hint text and larger hit area (`size-9` vs `size-7`)
+  - All mobile Select triggers bumped to `h-10` for better touch targets (44px+)
+  - Mobile option items in Select popover use `py-2.5` (vs `py-2` on desktop) for touch-friendly taps
+  - Action buttons on mobile use `min-h-10` with centered icon+text layout and improved touch feedback
+  - Preview controls bar shortened labels ("Preview" instead of "Preview Grid", "Randomize" instead of "Randomize Order", "Shuffle" instead of "Shuffle Now") with compact `px-2.5` on mobile
+  - Controls bar separator reduced from `h-5` to `h-4` for tighter mobile spacing
+  - "Add Collection" button shows "Add" text on both mobile and desktop (was `hidden md:inline`)
+- Removed `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` — replaced with simple up/down arrow reorder buttons that work on all devices
+- Rewrote `app/admin/gallery/vault/page.tsx` — Simplified responsive layout:
+  - Desktop (`md+`): Compact horizontal row with up/down arrows, thumbnail, inline title input, Select for category (w-32), width (w-24), height (w-24), and edit/delete icon buttons
+  - Mobile (`<md`): Clean split card with up/down arrows + thumbnail + title at top, read-only info bar below ("Category: Photography · Width: Standard · Height: Tall"), and touch-friendly Edit/Delete buttons with `min-h-10` targets
+  - Edit dialog uses short Select labels ("1 Col", "2 Cols", "3 Cols" / "1 Row", "2 Rows") with stacked layout on mobile (`flex-col sm:flex-row`)
+  - All Select option labels shortened to fit small screens
+- Removed confusing "Preview Grid" (2cols/3cols) and "Randomize Order" controls from vault page — they had no connection to the landing page layout
+- Added info banner explaining: "Collections appear in this order on the landing page. Use ▲▼ to rearrange." with a "View Live Site" button that opens the main site in a new tab
+- Updated page description to: "Reorder your vault collections. The order here controls the landing page display."
+
+### Review Collection Page — Improved UX
+- Rewrote `app/admin/gallery/reviews/page.tsx` with a focus on better user experience:
+  - **Enhanced desktop table**: Added `AuthorAvatar` component (gradient circle with initial letter), author + role in a side-by-side layout with avatar, `line-clamp-2` for quotes, thumbnail strip for attachments (shows up to 3 with `-space-x-2` overlap and `+N` badge), alternating row stripes (`odd:bg-[var(--bg-start)]/30`)
+  - **Enhanced mobile cards**: Same avatar + thumbnail strip design, stacked layout matching the desktop information hierarchy
+  - **Completely redesigned EditReviewDialog**: Replaced the single textarea for media URLs with a **scrollable media list** (`max-h-64 overflow-y-auto` with border container):
+    - Each media item has its own row: thumbnail preview (`MediaThumb` component with error fallback) + URL input + "Preview in new tab" button (`ExternalLinkIcon`) + Remove button
+    - Auto-detects image vs video type from URL extension (`detectMediaType`)
+    - "Add Media" button (dashed border) appends a new empty media row
+    - Media count badge in the section header
+    - Empty state "No media yet" when the list is empty
+    - Dialog has `max-h-[90vh]` with scrollable body (`overflow-y-auto`) and sticky header/footer
+    - Responsive layout: full-width bottom sheet on mobile, centered `max-w-xl` on desktop
+  - Added `ExternalLinkIcon` import for the preview button
+  - Added `MediaThumb` component with `onError` fallback for broken image URLs
+
+### Review Code Flow — Booking-to-Review Pipeline
+- Added `reviewCode` (string) and `reviewSubmitted` (boolean) fields to the `Booking` type (`app/admin/schedule/_components/types.ts`)
+- Added `generateReviewCode()` to `lib/services/bookings.ts` — generates an 8-char alphanumeric code (`XXXX-XXXX`) using readable characters (no I, O, 0, 1)
+- Updated seed data in `app/admin/schedule/page.tsx` with 4 review-code demo scenarios:
+  - `Alice Johnson` (today, confirmed) → pre-generated code `RVW3-A9XK`, not submitted — shows code + Copy/Send buttons
+  - `Diana Rahman` (today, confirmed) → no code — shows "Generate Review Code" button
+  - `Frank Lim` (future, confirmed) → code `XK92-MN34`, already submitted — shows "Review Submitted" badge
+  - Other bookings remain without codes
+- Enhanced `app/admin/schedule/_components/right-panel.tsx`:
+  - Added `onGenerateReviewCode` prop and `CopyButton` component with clipboard API + "Copied!" feedback
+  - For confirmed bookings with code not submitted: shows amber-highlighted row with code badge, Copy button, and "Send Email" button (copies code + review URL to clipboard as a dummy email flow)
+  - For confirmed bookings without code: shows "Generate Review Code" button with key icon
+  - For confirmed bookings with submitted review: shows green "Review Submitted" badge with checkmark
+  - All UI is responsive within the booking card layout
+- Wired `handleGenerateReviewCode` callback in `app/admin/schedule/page.tsx` — generates code, saves to localStorage, shows toast confirmation
+- Created `app/submit-review/page.tsx` — public 3-step review submission page:
+  - **Step 1 — Code Entry**: Centered card with code input (auto-uppercase, max 9 chars), error handling for invalid/already-used codes
+  - **Step 2 — Review Form**: Pre-filled author name (from booking) + service role, quote textarea (required), up to 3 media URL inputs with preview buttons and add/remove controls
+  - **Step 3 — Success**: Thank-you card with checkmark icon and "Back to Home" link
+  - Supports `?code=XXX` query param for direct deep-linking from email
+  - Saves review to `admin_reviews` (localStorage) and marks `reviewSubmitted` on the booking
+  - Responsive: full-width mobile layout, `max-w-lg` centered on desktop
+  - Wrapped in Suspense boundary for `useSearchParams` compatibility
+- Fixed `lib/services/bookings.ts` — `addBooking()` uses `Object.assign` to avoid TypeScript duplicate-key errors
+
+### Landing Page — Review Submission CTA
+- Created `components/ui/submit-review-modal.tsx` — modal component that collects **email + unique code**, verifies against localStorage bookings, and redirects to `/submit-review?code=XXX` on success:
+  - Clean centered card with lock icon header
+  - Email input + code input (auto-uppercase, max 9 chars)
+  - GSAP open/close animation (matching other site modals)
+  - Keyboard support: Enter to verify, Escape to close
+  - Error messages for invalid combination or already-submitted code
+  - Full-screen overlay on mobile, centered `max-w-md` on desktop
+- Updated `components/sections/feedback.tsx`:
+  - Added "Share Your Experience" CTA button at the bottom of the reviews section with checkmark icon
+  - Opens the SubmitReviewModal on click
+  - Styled to match existing section buttons (`rounded-full` border with amber hover)
+- Updated `components/sections/contact.tsx`:
+  - Added "Submit a Review" link in the footer area (before social icons)
+  - Links directly to `/submit-review` for users who already have their code
+  - Inline checkmark icon, subtle dim text that brightens on hover
+
+### Modal Fixes — Centering & Sticky Overflow
+- Fixed `components/ui/submit-review-modal.tsx` — the GSAP context is now stored in a `useRef` and properly cleaned up on unmount/close, fixing the page-stuck issue (body overflow stayed `hidden` after closing). Cleanup now reliably resets `document.body.style.overflow`.
+- Centered all admin modals across the site (replaced `items-end sm:items-center` with `items-center justify-center p-4`):
+  - `app/admin/gallery/vault/page.tsx` — EditCollection dialog
+  - `app/admin/gallery/reviews/page.tsx` — EditReviewDialog + Delete confirmation
+  - `app/admin/schedule/page.tsx` — Status change confirmation
+  - All now use `max-w-*` + `rounded-xl` uniformly on all screen sizes instead of bottom-sheet on mobile
+
+## [2026-05-31]
+
+### React Compiler Compatibility — Submit Review Modal
+- Modified `components/ui/submit-review-modal.tsx` — removed manual memoization on verify flow that caused React Compiler to skip optimization
+- Modified `components/ui/submit-review-modal.tsx` — switched Enter-key and Continue button verification calls to a ref-backed handler (`handleVerifyRef.current()`), keeping behavior stable without `useCallback`
+- Modified `components/ui/submit-review-modal.tsx` — synced latest verification logic in `useEffect` to satisfy hook dependency rules and compiler constraints
+
+### Multi-Video Carousel for Personal Vault — GSAP Crossfade
+- Modified `lib/services/vault.ts` — replaced `videoUrl?: string` with `videos?: string[]` in `VaultCollection`; updated seed Videography data with 2-3 video entries each using `/video-dummy.mp4`
+- Modified `components/sections/gallery.tsx` — replaced `videoUrl?: string` with `videos?: string[]` in `CollectionItem`; updated hardcoded Videography seed data; rewrote `GalleryCard` video section with dual-`<video>` GSAP crossfade carousel (two stacked video elements, 3s auto-advance, `power2.inOut` opacity crossfade over 0.5s, IntersectionObserver pause on scroll, hover pause)
+- Modified `app/admin/gallery/vault/page.tsx` — replaced single "Video URL" input with multi-row video list (add/remove buttons, URL inputs per row, "Add Video" dashed button); updated `EMPTY_FORM` to `videos: []`
+- Modified `components/ui/lightbox-modal.tsx` — updated to handle `videos[]` array; added prev/next navigation buttons for videography collections with multiple videos; fixed mediaIndex effect to animate all media types (removed `isVideo` guard); added video state reset on navigation
+
+### Increased Personal Vault Video Autoplay Duration to 15s
+- Modified `components/sections/gallery.tsx` — changed video crossfade auto-advance interval from 3000ms (3s) to 15000ms (15s) so each video plays longer before crossfading to the next
+
+### Fixed Admin Login Hydration Mismatch
+- Modified `app/admin/login/page.tsx` — added `mounted` state + `useEffect` to defer theme icon rendering until after client hydration, preventing SSR/client mismatch when localStorage stores a different theme than the server's hardcoded default of `'dark'`; removed unused `Separator` import
+
+### Fixed Admin Dashboard Hydration Mismatch (AdminHeader)
+- Modified `context/admin-theme-context.tsx` — exposed `mounted` boolean in context interface and provider value so all consumers can guard hydration-sensitive renders
+- Modified `components/admin/admin-header.tsx` — wrapped theme toggle icon (`<SunIcon />` / `<MoonIcon />`) in `{mounted && ...}` guard using context's `mounted`; fixes SSR/client hydration mismatch on dashboard and all admin pages that use `AdminHeader`
+
+### Documented Social Media Provider Data Requirements
+- Created `docs/social-media.md` — comprehensive per-platform data requirements covering all 5 providers (X, Instagram, Threads, TikTok, WhatsApp); documents link data layer, analytics dashboard types, per-platform stat cards, top posts, growth data, bar chart config, UI component consumption map, and known gaps/disconnects
+
+### Postgres DB Name + Admin-First Login Finalization
+- Updated `.env.local` — switched DB name and URLs to `adam-workcraft` and persisted working Postgres credentials (`postgres` user); kept local development password wiring consistent across `DATABASE_URL`, `DIRECT_URL`, and `SHADOW_DATABASE_URL`
+- Updated `.env.local` — set admin bootstrap credentials to `ADMIN_USERNAME=admin` and `ADMIN_PASSWORD=password`
+- Updated `.env.local` — set local `AUTH_SECRET` so `/api/auth/login` can issue signed session cookies in development
+- Updated `.env.example` — aligned admin bootstrap example to `ADMIN_PASSWORD=password` for first-login flow consistency
+- Ran Prisma migration successfully on `adam-workcraft`: created and applied `prisma/migrations/20260531051640_init/migration.sql`
+- Verified migration health with `db:status`: schema is up to date
+- Verified admin bootstrap login end-to-end via API (`POST /api/auth/login` with `admin/password`) returns success and creates initial `admin_users` row with hashed password
+
+### Schedule Production Integration — Admin CRUD on Real Postgres Tables
+- Created `lib/server/admin-auth.ts` — centralized admin-session cookie verification helper for protected admin API routes
+- Created `app/api/admin/bookings/_utils.ts` — booking validation/mapping utilities (`status`, `date`, `time`, review code generation, DB-to-UI mapping)
+- Created `app/api/admin/bookings/route.ts` — authenticated `GET`/`POST` endpoints backed by Prisma `booking` table with input validation and normalized responses
+- Created `app/api/admin/bookings/[id]/route.ts` — authenticated `PATCH`/`DELETE` endpoints with field-level validation, review-code generation action, and `P2025` not-found handling
+- Created `lib/services/admin-bookings.ts` — typed client API service for schedule actions (`fetch`, `create`, `update`, `delete`, `generate review code`) with consistent error handling
+- Rewrote `app/admin/schedule/page.tsx` — removed localStorage + dummy seed flow and integrated live async server CRUD for all actions (load/create/edit/status change/delete/review code)
+- Updated `app/admin/schedule/_components/right-panel.tsx` — footer now reflects DB sync state (`Synced with database`)
+- Validated integration with `npm run lint` and workspace diagnostics (`get_errors`) — no errors reported
+
+### Next.js 16 Deprecation Fix — Middleware to Proxy
+- Created `proxy.ts` — migrated admin route guard from deprecated middleware convention to new proxy file convention
+- Updated exported handler name from `middleware` to `proxy` while preserving existing auth redirect behavior and matcher config
+- Deleted deprecated `middleware.ts` to remove Next.js warning: "The middleware file convention is deprecated. Please use proxy instead."
+- Validated migration with diagnostics and direct ESLint run on `proxy.ts` (no errors)
+
+### Admin Profile Upload UX — Animated Loading Overlay
+- Enhanced `app/admin/profile/page.tsx` — added upload progress state (`uploadProgress`) and upload stage state (`uploading`/`finalizing`) for clearer feedback during avatar upload
+- Enhanced `app/admin/profile/page.tsx` — added full-screen upload overlay with spinner, live status text, animated progress bar, and numeric percent while image upload is in flight
+- Enhanced `app/admin/profile/page.tsx` — improved completion flow by briefly showing 100% before dismissing overlay for smoother perceived finish
+- Refactored `app/admin/profile/page.tsx` — removed lint issues (`set-state-in-effect`) by using lazy state init and resize-driven updates; cleaned unused import/state
+- Validated with diagnostics and direct ESLint on profile page (no errors)
+
+### Admin Profile Image Replace Flow — Better UX + Drive Cleanup
+- Updated `app/admin/profile/page.tsx` — added drag-and-drop avatar upload zone with clear guidance and in-progress hint text
+- Updated `app/admin/profile/page.tsx` — refactored upload flow into reusable file uploader used by both file picker and drop action
+- Updated `app/admin/profile/page.tsx` — extracts previous Drive proxy file id from current avatar URL and sends it as `previousFileId` during new upload
+- Updated `app/api/media/upload/route.ts` — accepts optional `previousFileId` and attempts deletion of old Drive file after successful new upload
+- Updated `lib/server/google-drive.ts` — added `deleteGoogleDriveFile(fileId)` helper used by media upload cleanup
+- Updated `app/api/media/upload/route.ts` — returns `previousFileDeleted` flag for frontend success messaging
+- Validated modified files with diagnostics and ESLint (no errors)
+
+### Profile Reset Cleanup — Remove Previous Drive Image
+- Updated `app/api/media/[fileId]/route.ts` — added admin-authenticated `DELETE` handler to remove a Drive file by id
+- Updated `app/admin/profile/page.tsx` — reset action now extracts current proxy file id, resets avatar immediately for responsive UX, and calls `DELETE /api/media/{fileId}` in background
+- Updated `app/admin/profile/page.tsx` — added `resettingAvatar` state with disabled buttons and `Resetting...` label to prevent duplicate actions
+- Updated `app/admin/profile/page.tsx` — shows clear success/fallback toast messages depending on old-file deletion outcome
+- Validated modified files with diagnostics and ESLint (no errors)
+
+### Profile UI Simplification — Click Upload Only
+- Updated `app/admin/profile/page.tsx` — removed drag-and-drop upload state and handlers
+- Updated `app/admin/profile/page.tsx` — restored simple button-based upload controls (`Upload New Photo` / `Reset to Default`) for cleaner desktop/mobile UX
+- Kept all recent backend cleanup behavior intact (old Drive file deletion on replace/reset)
+- Revalidated diagnostics and ESLint (no errors)
+
+### Google Drive OAuth Support for Personal/Free My Drive
+- Updated `lib/server/google-drive.ts` — added dual auth strategy support with `GOOGLE_DRIVE_AUTH_MODE` (`auto`, `oauth`, `service`)
+- Updated `lib/server/google-drive.ts` — implemented OAuth2 refresh-token Drive client creation using `GOOGLE_DRIVE_OAUTH_CLIENT_ID`, `GOOGLE_DRIVE_OAUTH_CLIENT_SECRET`, and `GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN`
+- Updated `lib/server/google-drive.ts` — auto mode now prefers OAuth when OAuth env vars are present, and falls back to service-account JWT otherwise
+- Updated `lib/server/google-drive.ts` — improved credential error messages to include OAuth setup guidance for personal My Drive use
+- Updated `.env.example` and `.env.drive.example` — added OAuth env templates and `GOOGLE_DRIVE_AUTH_MODE` usage guidance
+- Updated `docs/google-drive-production-setup.md` — documented personal/free My Drive OAuth flow and refresh token acquisition steps via OAuth Playground
+- Updated `.env.local` — switched local Drive auth mode to OAuth with required placeholder variables
+- Verified edited files with diagnostics (`get_errors`) and linted successfully via direct ESLint CLI (`node .\\node_modules\\eslint\\bin\\eslint.js .`)
+
+### Personal Vault Professional Upgrade � DB + Unique Code + Drive-backed Media UX
+- Updated prisma/schema.prisma � added VaultCollection.code as unique identifier for professional collection tracking
+- Created migration prisma/migrations/20260531120500_vault_code/migration.sql and applied it successfully (migrate deploy)
+- Created 	ypes/vault.ts � shared vault contracts for admin/public/API layers
+- Created pp/api/admin/vault/route.ts � authenticated DB-backed list/create endpoints for personal vault
+- Created pp/api/admin/vault/[id]/route.ts � authenticated update/delete endpoints with media replacement + order normalization
+- Created pp/api/admin/vault/_utils.ts � payload validation, media mapping, DB-to-UI mapper, and unique vault code generation (VLT-XXXX-XXXX)
+- Created lib/services/admin-vault.ts � client API service for vault CRUD operations
+- Created pp/api/public/vault/route.ts � public read endpoint so landing gallery consumes live vault data (including Drive proxy links)
+- Refactored pp/admin/gallery/vault/page.tsx � switched from localStorage to API persistence, kept responsive UX, added loading state and optimistic updates
+- Enhanced pp/admin/gallery/vault/page.tsx � edit/create modal now surfaces collection code and preserves image picker + preview flow with Drive upload integration
+- Updated components/sections/gallery.tsx � loads collections from /api/public/vault with fallback data and dynamic layout classes from vault spans
+- Validated with diagnostics + ESLint (warnings only for existing <img> optimization suggestions, no errors)
+
+### Hydration Mismatch Fixes � 9 Issues Resolved
+- Fixed lib/constants.ts � exported DEFAULT_PROFILE for stable SSR/client initialization
+- Fixed components/admin/admin-sidebar.tsx � replaced useState(loadProfile()) with useState(DEFAULT_PROFILE) in DesktopSidebar + MobileSidebar to prevent avatar src mismatch
+- Fixed pp/admin/profile/page.tsx � replaced useState(loadProfile()) with DEFAULT_PROFILE; removed 	ypeof window from sidebar/isMobile initializers
+- Fixed pp/admin/schedule/_components/right-panel.tsx � replaced 	ypeof window in JSX with useEffect-based origin
+- Fixed pp/admin/schedule/page.tsx � nullable selectedDate/currentMonth + todayDate prop for CalendarGrid
+- Fixed pp/admin/dashboard/page.tsx � nullable now/dashboardCursor; getGreeting(now); guarded memos
+- Fixed components/sections/contact.tsx � useEffect-based year (replaces 
+ew Date().getFullYear() in JSX)
+- Fixed pp/admin/social/_components/platform-dashboard.tsx � nullable cursor with effect init
+- Verified with 
+px next build � zero errors
+
+### Hydration Mismatch Fix - Admin Avatar SSR/Client Consistency (Follow-up)
+- Updated lib/constants.ts - exported `DEFAULT_PROFILE` and made loadProfile() return cloned defaults to keep initial server output deterministic
+- Updated app/admin/profile/page.tsx - switched profile state init from loadProfile() to DEFAULT_PROFILE, then hydrated saved profile in requestAnimationFrame effect
+- Updated components/admin/admin-sidebar.tsx - switched Desktop/Mobile sidebar profile state init from loadProfile() to DEFAULT_PROFILE, then hydrated saved profile in requestAnimationFrame effect
+- Validated edited files with workspace diagnostics (get_errors) - no errors found
+### Sidebar Live Sync Fix - Profile Picture Updates Immediately
+- Updated lib/constants.ts - added PROFILE_UPDATED_EVENT and dispatch it in saveProfile() after writing profile data
+- Updated components/admin/admin-sidebar.tsx - DesktopSidebar and MobileSidebar now listen for PROFILE_UPDATED_EVENT + storage and refresh profile/avatar instantly
+- Validated with workspace diagnostics (get_errors) - no errors found
+### Profile Validation + Error Handling Hardening
+- Updated app/admin/profile/page.tsx - added strict validation for name/email before save with inline field errors and blocking toast feedback
+- Updated app/admin/profile/page.tsx - upgraded password validation to stronger security rules (min 12 chars, upper/lower/number/symbol, no spaces, no repeated chars, blocks common passwords, blocks using name/email tokens)
+- Updated app/admin/profile/page.tsx - password change now requires valid profile identity fields first and clears error state on input
+- Updated components/ui/avatar.tsx - added image onError fallback so broken avatar URLs automatically show initials fallback
+- Validated modified files with workspace diagnostics (get_errors) - no errors found
+### Password Rule Indicator UX
+- Updated app/admin/profile/page.tsx - added live password rule checklist with check/cross icons while typing
+- Updated app/admin/profile/page.tsx - wired checklist to same security constraints (length, complexity, no spaces, anti-repeat, common password block, no name/email token)
+- Updated app/admin/profile/page.tsx - Update Password button now stays disabled until all password rules pass
+- Validated with workspace diagnostics (get_errors) - no errors found
+### Password Strength Label UX
+- Updated app/admin/profile/page.tsx - added live Weak/Medium/Strong strength chip above password rule checklist
+- Updated app/admin/profile/page.tsx - strength is computed from current passed-rule count and updates while typing
+- Validated with workspace diagnostics (get_errors) - no errors found
+### Password Minimum Length Adjustment
+- Updated app/admin/profile/page.tsx - changed minimum password length from 12 to 8
+- Updated app/admin/profile/page.tsx - changed checklist label to "At least 8 characters"
+- Updated app/admin/profile/page.tsx - changed password placeholder to reflect 8-character minimum
+- Validated with workspace diagnostics (get_errors) - no errors found
+### Dashboard DB Integration + Performance Refactor
+- Updated app/admin/dashboard/page.tsx - replaced localStorage bookings source with fetchAdminBookings() from admin API (DB-backed)
+- Updated app/admin/dashboard/page.tsx - added production-grade loading/error/retry flow and unauthorized redirect handling
+- Updated app/admin/dashboard/page.tsx - added manual Refresh action in page header for on-demand sync
+- Updated app/admin/dashboard/page.tsx - memoized period range + current/previous filtered datasets and reused them across stats/widgets to reduce repeated filtering work
+- Updated app/admin/dashboard/page.tsx - removed unused getPeriodData helper after refactor
+- Validated with workspace diagnostics (get_errors) - no errors found
+### Dashboard UX + Production Enhancements (Phase 2)
+- Updated app/api/admin/bookings/route.ts - added GET query support for from/to date range and limit validation (1..1000)
+- Updated lib/services/admin-bookings.ts - fetchAdminBookings now accepts from/to/limit/signal and builds query-string endpoint
+- Updated app/admin/dashboard/page.tsx - dashboard now requests only required range (previous period start to current period end)
+- Updated app/admin/dashboard/page.tsx - added background revalidation every 60s while keeping current data on screen
+- Updated app/admin/dashboard/page.tsx - added sync telemetry UI (last sync time, request duration, failed retry count)
+- Updated app/admin/dashboard/page.tsx - manual refresh and retry now use non-blocking background fetch
+- Validated with workspace diagnostics (get_errors) - no errors found
+### Dashboard Scalability: Server-side Summary Aggregation
+- Added app/api/admin/dashboard/summary/route.ts with authenticated summary aggregation (current/previous totals, status counts, weekday distribution, top service, recent bookings)
+- Added lib/services/admin-dashboard.ts with typed fetchAdminDashboardSummary client helper
+- Updated app/admin/dashboard/page.tsx to fetch bookings + summary in parallel using Promise.allSettled
+- Reduced dashboard bookings fetch range to current selected period only
+- Switched stat cards/trends/recent bookings/insights to summary-driven data with local fallbacks
+- Updated day-of-week chart to consume pre-aggregated data
+- Updated app/admin/dashboard/page.tsx - fixed render-time ref usage in TrendLineChart hover logic and resolved callback dependency diagnostics
+- Updated app/admin/dashboard/page.tsx - applied targeted eslint set-state-in-effect suppressions for existing effect patterns to keep diagnostics clean
+- Validated with workspace diagnostics (get_errors) - no errors found
+### Dashboard Caching + Large-Data Loading Animation
+- Updated app/api/admin/dashboard/summary/route.ts with in-memory stale-while-revalidate cache for summary payloads
+- Added cache freshness policy: fresh TTL (15s) and stale window (120s) with background revalidation
+- Added in-flight deduplication to avoid duplicate concurrent summary DB queries for the same key
+- Updated app/admin/dashboard/page.tsx with animated skeleton loading state for initial large data fetch
+- Updated app/admin/dashboard/page.tsx with animated refresh progress bar + fetch status text during background sync
+### Dashboard Global Loading Overlay + Telemetry Cleanup
+- Updated app/admin/dashboard/page.tsx with a profile-upload style global animated loading overlay (spinner + progress bar)
+- Overlay now appears for initial fetch, filter changes, manual refresh, and retry actions
+- Removed the "Data synced at ..." telemetry line from dashboard UI per UX request
+- Kept background auto-refresh behavior without forcing visible sync telemetry text
+- Validated with workspace diagnostics (get_errors) - no errors found
+### Dashboard Skeleton Refactor + Sync Text Cleanup
+- Created components/ui/skeleton.tsx as reusable global Skeleton UI primitive for future loading states
+- Refactored app/admin/dashboard/page.tsx loading placeholders to use Skeleton component (replaces inline custom loading blocks)
+- Removed dashboard sync telemetry line ("Data synced at ...") to keep filter switching UI cleaner
+- Removed temporary refresh shimmer block and related telemetry state from dashboard page
+- Validated edited files with workspace diagnostics (get_errors) - no errors found
+- Updated app/admin/dashboard/page.tsx - improved filter UX by showing full skeleton only on first load (`hasLoadedOnce`)
+- Updated app/admin/dashboard/page.tsx - subsequent filter/date-range reloads now run as background refresh, preserving current dashboard content on screen
+- Validated with workspace diagnostics (get_errors) - no errors found
+- Updated app/admin/dashboard/page.tsx - added subtle inline background-refresh indicator ("Updating...") beside period navigation controls
+- Indicator appears only after first load during non-blocking refresh to improve feedback without full content reload
+- Validated with workspace diagnostics (get_errors) - no errors found
+- Updated app/admin/dashboard/page.tsx - removed manual Refresh button from header actions as requested
+- Kept automatic background refresh and subtle inline updating indicator behavior unchanged
+- Validated with workspace diagnostics (get_errors) - no errors found
+### Landing Visit Analytics + Admin Statistics (Production Integration)
+- Updated prisma/schema.prisma - added PageVisit model with indexed analytics fields (path, browser, os, device type, language, referrer, session, ip hash, visited_at)
+- Added migration prisma/migrations/20260531162000_page_visit_analytics/migration.sql for page_visits table and indexes
+- Ran npm.cmd run db:generate and npm.cmd run db:deploy successfully (migration applied)
+- Added public ingest endpoint app/api/public/analytics/visit/route.ts with dedup window, UA parsing, anonymized ip hash, session cookie, and secure defaults
+- Added admin analytics endpoint app/api/admin/statistics/visits/route.ts with auth guard, filtering, pagination, and summary buckets (top browsers/pages/devices)
+- Added typed client service lib/services/admin-statistics.ts for admin statistics API access
+- Updated app/(public)/page.tsx to track landing page visit once per session path using sendBeacon/keepalive fallback
+- Added BarChartIcon in components/shared/icons.tsx and wired new Statistics sidebar item in components/admin/admin-sidebar.tsx
+- Created app/admin/statistics/page.tsx with production-ready UX: KPI cards, filters/search, top bucket cards, paginated visit log, loading skeletons, retry handling, and unauthorized redirect
+- Validated updated files with workspace diagnostics (get_errors) - no errors found
+- Updated components/ui/skeleton.tsx - made Skeleton shadcn-style with animate-pulse default behavior
+- Refactored app/admin/dashboard/page.tsx - full initial-load skeleton now mirrors final dashboard structure (filters, stats, charts, lists, quick actions)
+- Refactored app/admin/dashboard/page.tsx - initial loading now renders skeleton-only state; real content is hidden until data ready (prevents layout mismatch/jump)
+- Updated app/admin/dashboard/page.tsx - removed manual Refresh button and kept subtle background "Updating..." indicator for non-blocking refreshes
+- Validated edited files with workspace diagnostics (get_errors) - no errors found
+- Added components/admin/dashboard/dashboard-loading-skeleton.tsx with reusable skeleton components (stat card, chart card, recent list, insights, quick actions, full dashboard skeleton)
+- Refactored app/admin/dashboard/page.tsx to import reusable DashboardLoadingSkeleton and removed inline skeleton markup
+- Updated components/ui/skeleton.tsx to use shadcn-style animate-pulse by default
+- Validated with workspace diagnostics (get_errors) - no errors found
+- Added components/admin/statistics/statistics-loading-skeleton.tsx with reusable statistics loading skeletons
+- Reused DashboardStatCardSkeleton in statistics skeleton module for consistent KPI loading visuals
+- Refactored app/admin/statistics/page.tsx to use full initial skeleton-only state via StatisticsLoadingSkeleton
+- Removed inline statistics ListSkeleton implementation in favor of reusable skeleton components
+- Validated with workspace diagnostics (get_errors) - no errors found
+- Created components/admin/loading/skeleton-primitives.tsx with shared admin loading primitives (stat card, card header, metric bar row, table row)
+- Refactored components/admin/dashboard/dashboard-loading-skeleton.tsx to reuse shared primitives and keep exported DashboardStatCardSkeleton compatible
+- Refactored components/admin/statistics/statistics-loading-skeleton.tsx to reuse shared primitives for KPI cards, top-bucket rows, and visit-log table rows
+- Extended shared metric-bar primitive with optional top-row rendering for chart-style bar reuse without layout changes
+- Validated modified loading/skeleton files with workspace diagnostics (get_errors) - no errors found
+- Added components/admin/schedule/schedule-loading-skeleton.tsx with responsive schedule loading placeholders (stats, mobile tabs, calendar grid, right panel rows)
+- Updated app/admin/schedule/page.tsx to use initial-load-only skeleton gating (`showInitialSkeleton`) and render `ScheduleLoadingSkeleton`
+- Replaced plain "Loading schedule..." placeholder with layout-matched skeleton to improve visual consistency and reduce loading layout shift
+- Validated schedule skeleton integration with workspace diagnostics (get_errors) - no errors found
+- Added components/admin/gallery/gallery-loading-skeleton.tsx with responsive gallery skeletons for Personal Vault and Review Collection pages
+- Updated app/admin/gallery/vault/page.tsx with first-load skeleton gating (`isBootstrapping`) to prevent empty-state flicker while collections hydrate
+- Updated app/admin/gallery/reviews/page.tsx with first-load skeleton gating (`isBootstrapping`) to keep loading UX consistent before reviews hydrate
+- Preserved mobile/desktop layout parity in skeleton states (table/cards for reviews, row/list structure for vault)
+- Validated gallery skeleton integration with workspace diagnostics (get_errors) - no errors found
+- Added components/admin/social/social-loading-skeleton.tsx with reusable responsive skeletons for Social links and per-platform analytics dashboard pages
+- Updated app/admin/social/page.tsx with first-load skeleton gating (`isBootstrapping`) to avoid initial hydration flicker before links load
+- Updated app/admin/social/[platform]/page.tsx with first-load skeleton gating (`isBootstrapping`) and responsive analytics placeholders
+- Preserved desktop/mobile layout structure in social skeleton states (2-column link cards, KPI grid, chart and list cards)
+- Validated social skeleton integration with workspace diagnostics (get_errors) - no errors found
+- Added components/admin/loading/index.ts as a centralized barrel export for all admin skeleton modules and shared loading primitives
+- Updated admin page imports (dashboard, statistics, schedule, gallery, social) to consume skeletons via '@/components/admin/loading' for cleaner, consistent loading architecture
+- Kept runtime behavior unchanged while reducing import sprawl and improving maintainability
+- Validated loading-barrel refactor with workspace diagnostics (get_errors) - no errors found
+- Fixed React hook-order runtime error in app/admin/social/[platform]/page.tsx by moving getDummyData memoization to top-level hook (`dashboardData`) and removing inline conditional `useMemo` call from JSX
+- Validated social platform page diagnostics after fix (get_errors) - no errors found
+- Enhanced app/admin/gallery/vault/page.tsx UX with collection summary cards, title/category search, quick category filters, and filtered-empty state
+- Improved app/admin/gallery/vault/page.tsx reorder safety: move controls are disabled while filters are active to prevent confusing reorder behavior
+- Enhanced app/admin/gallery/reviews/page.tsx UX with review summary cards, search (author/role/quote), media-type filters, and filtered-empty state
+- Updated gallery page controls to use consistent input/filter patterns and responsive card layouts across desktop and mobile
+- Validated updated gallery pages with workspace diagnostics (get_errors); no blocking errors introduced
+- Added components/admin/gallery/gallery-shared-ui.tsx with reusable `GallerySummaryGrid` and `GallerySearchFilterBar` components
+- Refactored app/admin/gallery/vault/page.tsx to consume shared gallery UI primitives for summary + search/filter controls
+- Refactored app/admin/gallery/reviews/page.tsx to consume shared gallery UI primitives for summary + search/filter controls
+- Standardized control spacing, typography, and filter-chip interaction across both gallery admin pages while keeping behavior unchanged
+- Validated shared-gallery refactor with workspace diagnostics (get_errors) - no errors found
+- Added components/admin/shared/admin-insights-ui.tsx with generic reusable `AdminSummaryGrid` and `AdminSearchFilterBar` primitives for admin pages
+- Refactored components/admin/gallery/gallery-shared-ui.tsx to compose and reuse generic admin shared primitives (reduced duplicate UI logic)
+- Enhanced app/admin/social/page.tsx with summary cards (total/connected/missing/completion), platform search, connection-status filters, and filtered empty state
+- Kept Social page responsive layout and lightweight behavior while improving consistency with Gallery UX patterns
+- Validated shared-admin/social refactor with workspace diagnostics (get_errors) - no errors found
+
+### Fallback Hardening + Admin Upload Preview UX
+- Created lib/services/admin-media.ts with shared admin upload helper for `/api/media/upload` (Drive proxy URL extraction + consistent error handling)
+- Enhanced app/admin/gallery/vault/page.tsx edit/create dialog with upload-first media workflow:
+  - Thumbnail upload with live preview and clear action
+  - Multi-image upload with immediate preview cards and remove actions
+  - Multi-video upload with embedded video previews and remove actions
+  - Optional manual URL add remains as fallback for external media
+- Enhanced app/admin/gallery/reviews/page.tsx edit/create dialog with upload-first media workflow:
+  - Upload Images / Upload Videos actions backed by Drive upload endpoint
+  - Immediate preview list after upload with per-item remove and edit controls
+  - Optional manual URL add remains as fallback path
+- Improved components/sections/contact.tsx empty-data fallback behavior:
+  - Empty social links are now non-interactive (no dead `#` navigation)
+  - Added “Social links will appear here once configured.” hint when DB has no social rows yet
+- Validated touched slices with workspace diagnostics (`get_errors`): no errors found
+
+### Gallery Admin Add Flow + Review Filter Consistency Fix
+- Fixed app/admin/gallery/vault/page.tsx add flow: `Add` now opens a draft dialog first (no premature API create), and create is performed only on Save
+- Fixed app/admin/gallery/vault/page.tsx save handler to support both create (new draft with empty id) and update (existing collection)
+- Fixed app/admin/gallery/reviews/page.tsx add flow: `Add Review` now opens a draft dialog first, and create is performed only on Save
+- Fixed app/admin/gallery/reviews/page.tsx save handler to support both create and update paths
+- Restored app/admin/gallery/reviews/page.tsx UX consistency by always showing summary cards + search/filter controls even when there are zero reviews
+- Validated updated gallery admin pages with diagnostics (`get_errors`): no errors found
+
+### Landing + Admin DB Integration Completion
+- Updated app/admin/gallery/reviews/page.tsx to fully use DB-backed admin reviews APIs (`fetch/create/update/delete`) with toast-backed error handling and optimistic delete rollback
+- Updated app/admin/gallery/vault/page.tsx type alignment and compiler-safe behavior (`PublicVaultCollection` contracts, media-query initialization, edit dialog remount key, blur-save title input)
+- Updated app/admin/social/page.tsx to use DB-backed social links APIs (`fetchAdminSocialLinks`, `saveAdminSocialLinks`) instead of local storage
+- Updated components/sections/gallery.tsx to load public vault content from `/api/public/vault` with responsive span mapping and safe fallback content
+- Updated components/sections/feedback.tsx to load public reviews from `/api/public/reviews` with fallback content and optimized modal image rendering
+- Updated components/sections/contact.tsx to load social URLs from `/api/public/social-links` with graceful fallback links
+- Replaced remaining modal/thumb `<img>` tags in touched files with `next/image` (`unoptimized` where needed) to resolve no-img warnings and improve production readiness
+- Validated all touched slices with workspace diagnostics (get_errors): no errors found
+### Review API Contract Hardening
+- Hardened lib/services/admin-reviews.ts with payload normalizers for create/update requests (trim text fields, sanitize media collection, constrain media type to image/video)
+- Hardened app/api/admin/reviews/route.ts with strict collection validation and item-level 400 responses for malformed media payloads
+- Hardened app/api/admin/reviews/[id]/route.ts with early review existence check before mutation and strict collection validation on PATCH
+- Preserved mixed image/video review collection behavior while removing dependency on manual URL media editing in admin UI
+- Validated with workspace diagnostics (get_errors) on updated review service/API files - no errors found
+- Validated with npm.cmd run build - production build and TypeScript checks passed
+
+### Admin Gallery Dropzone UX Upgrade
+- Upgraded drag-and-drop areas in app/admin/gallery/vault/page.tsx to dedicated visual dropzones for images and videos with active drag highlight states
+- Upgraded drag-and-drop areas in app/admin/gallery/reviews/page.tsx to dedicated visual dropzones for images and videos with active drag highlight states
+- Added clearer dropzone affordances (icon + helper copy) while preserving existing upload button flows
+- Validated with workspace diagnostics (get_errors) for both gallery pages - no errors found
+- Validated with npm.cmd run build - production build and TypeScript checks passed
+
+### Gallery Shared Dropzone Refactor
+- Created components/admin/gallery/media-dropzone.tsx as a reusable interactive drag-and-drop UI component with active-state highlight and consistent helper copy
+- Refactored app/admin/gallery/vault/page.tsx to use shared MediaDropzone for image and video drop areas in the Personal Vault dialog
+- Refactored app/admin/gallery/reviews/page.tsx to use shared MediaDropzone for image and video drop areas in the Review dialog
+- Removed duplicated inline drag-state UI/event handling from both dialogs while preserving existing upload handlers and behavior
+- Validated with workspace diagnostics (get_errors) on the new shared component and both gallery pages - no errors found
+- Validated with npm.cmd run build - production build and TypeScript checks passed
+
+### Dropzone UX Consistency Polish
+- Improved components/admin/gallery/media-dropzone.tsx visual design (clearer icon badge, stronger hover/active states, cleaner typography hierarchy) to feel more professional
+- Added click-to-upload and keyboard accessibility (Enter/Space) support in shared MediaDropzone for better usability
+- Updated app/admin/gallery/vault/page.tsx dropzones to use consistent interaction/copy with Reviews (drag or click upload)
+- Updated app/admin/gallery/reviews/page.tsx dropzones to match Personal Vault wording and behavior exactly
+- Validated with workspace diagnostics (get_errors) on all touched files - no errors found
+- Validated with npm.cmd run build - production build and TypeScript checks passed
+
+### Responsive + Performance Polish (Gallery Dialogs)
+- Upgraded Personal Vault edit dialog in app/admin/gallery/vault/page.tsx to a scroll-safe modal shell (`max-h` + internal overflow) for better mobile and desktop responsiveness
+- Improved action accessibility/touch ergonomics in both dialogs (larger close and upload button hit areas)
+- Added memoization to components/admin/gallery/media-dropzone.tsx (`React.memo`) and preserved lightweight drag state updates for smoother interactions
+- Replaced inline picker click lambdas with stable callbacks in Vault/Reviews dialogs to reduce avoidable re-renders
+- Kept shared dropzone UI consistent between Personal Vault and Reviews with the same behavior and responsive styling
+- Validated with workspace diagnostics (get_errors) on all touched files - no errors found
+- Validated with npm.cmd run build - production build and TypeScript checks passed
+
+### Mobile Responsiveness Final Pass (Gallery Dialogs)
+- Improved narrow-screen layout in app/admin/gallery/vault/page.tsx: upload action rows now wrap safely and action footer stacks on mobile (`flex-col-reverse`) then restores row layout on larger screens
+- Improved narrow-screen layout in app/admin/gallery/reviews/page.tsx: consistent modal shell spacing (`px-4 sm:px-5`), upload action buttons use mobile-friendly single-column layout, and footer stacks on mobile
+- Increased tap comfort by keeping larger minimum heights on primary dialog actions
+- Preserved desktop behavior while tightening mobile responsiveness for both dialogs
+- Validated with workspace diagnostics (get_errors) - no errors found
+- Validated with npm.cmd run build - production build and TypeScript checks passed
+
+### Personal Vault Save Error + UI Parity Fix
+- Hardened submit flow in app/admin/gallery/vault/page.tsx: added save-in-progress guard (`isSavingEdit`), disabled actions while saving, and Save button loading state to prevent duplicate submissions
+- Updated Personal Vault media preview rows to match Review page style (compact thumb + filename + remove action) for both image and video lists
+- Improved dialog close behavior to prevent accidental close during active save request
+- Updated app/api/admin/vault/route.ts and app/api/admin/vault/[id]/route.ts to return actionable error messages (and server logs) instead of always masking failures as `Invalid request`
+- Validated with workspace diagnostics (get_errors) on touched files - no errors found
+- Validated with npm.cmd run build - production build and TypeScript checks passed
+
+### Personal Vault UX Alignment with Review Dialog
+- Removed the Personal Vault `Video collection` checkbox flow and switched to Review-style media management (always-visible Upload Images + Upload Videos + both dropzones)
+- Refactored Personal Vault media preview to a unified list matching Review dialog style (thumbnail, filename, remove action) with mixed image/video rows
+- Updated Personal Vault save logic to auto-derive `isVideo` at submit time based on uploaded assets (video-only => video collection, otherwise image collection)
+- Added save-state guard in Personal Vault dialog to prevent duplicate submissions and accidental close while saving
+- Improved Vault API error handling in app/api/admin/vault/route.ts and app/api/admin/vault/[id]/route.ts to return actionable error messages instead of always `Invalid request`
+- Validated with workspace diagnostics (get_errors) - no errors found
+- Validated with npm.cmd run build - production build and TypeScript checks passed
+
+### Personal Vault UX Alignment with Review Dialog
+- Removed the Personal Vault `Video collection` checkbox flow and switched to Review-style media management (always-visible Upload Images + Upload Videos + both dropzones)
+- Refactored Personal Vault media preview to a unified list matching Review dialog style (thumbnail, filename, remove action) with mixed image/video rows
+- Updated Personal Vault save logic to auto-derive `isVideo` at submit time based on uploaded assets (video-only => video collection, otherwise image collection)
+- Added save-state guard in Personal Vault dialog to prevent duplicate submissions and accidental close while saving
+- Improved Vault API error handling in app/api/admin/vault/route.ts and app/api/admin/vault/[id]/route.ts to return actionable error messages instead of always `Invalid request`
+- Validated with workspace diagnostics (get_errors) - no errors found
+- Validated with npm.cmd run build - production build and TypeScript checks passed
+### Vault Save Null Constraint Hotfix
+- Diagnosed live DB mismatch: `vault_collections` contains required `code` column (`NOT NULL`, no default) not represented in Prisma model, causing create to fail with null constraint
+- Updated prisma/schema.prisma `VaultCollection` model to include required `code` field
+- Updated app/api/admin/vault/route.ts create flow to populate `code` using generated value (`VC-...`) on every new collection
+- Regenerated Prisma client (`npm.cmd run db:generate`) after schema update
+- Kept previous submit-flow and UI parity fixes intact (review-style media flow in Personal Vault, no video checkbox)
+- Validated with diagnostics and full production build - all checks passed
+
+### Staged Upload + Drive Cleanup Hardening
+- Implemented staged (deferred) media uploads in Personal Vault and Review dialogs: files are only uploaded to Drive after user clicks Save
+- Added local pending previews for selected/dropped files so users can review and remove before save without storing to Drive
+- Added post-save cleanup for removed existing media in both Personal Vault and Review edit flows using Drive delete endpoint
+- Added rollback cleanup for newly uploaded files when save fails to prevent orphaned files in Drive
+- Added professional filename support in upload API (ileName) and client-side naming strategy for Vault/Review media
+- Hardened media proxy streaming in app/api/media/[fileId]/route.ts to avoid uncaught ERR_INVALID_STATE when stream/controller is closed during aborts
+- Extended admin media service with deleteAdminMediaByUrl + file-id extraction utilities
+- Validated with diagnostics and full production build - all checks passed
+
+### Save Upload Animation Feedback (Vault + Reviews)
+- Added animated upload progress state in Personal Vault dialog during Save: spinner + stage text (Uploading / Finalizing) + progress bar
+- Added same animated upload progress UI in Review dialog for consistent admin experience
+- Wired staged upload handlers to report progress as files are uploaded and while final API save is running
+- Kept save buttons disabled while upload/finalize is active, with visible status so users can see Save is processing
+- Validated with diagnostics and production build - all checks passed
+
+### Upload Progress Smoothing (Vault + Reviews)
+- Refined save-time upload feedback to use eased progress animation in both dialogs for smoother percentage and bar movement
+- Added dialog-local animated progress state with interval-based easing while preserving backend upload/save flow
+- Updated progress reset lifecycle to be lint-safe and avoid synchronous setState-in-effect warnings
+- Verified with diagnostics and production build (successful)
+
+### Vault/Review Delete Cleanup + UX Guardrails
+- Added server-side Google Drive cleanup when deleting Vault collections (/api/admin/vault/[id]) so linked media files are removed after list deletion
+- Added server-side Google Drive cleanup when deleting Reviews (/api/admin/reviews/[id]) so review media files are removed on list deletion
+- Added Preview action button to Personal Vault list (desktop + mobile) with an admin-safe lightbox modal for images/videos
+- Added invalid file-type toast validation for drag-and-drop in both Vault and Review dialogs (image dropzone rejects videos/non-images; video dropzone rejects images/non-videos)
+- Validated touched files with diagnostics and successful production build
+
+### Vault Modal + Delete Confirm Parity
+- Replaced Personal Vault preview with Review-style animated lightbox behavior (keyboard nav, transition, fullscreen, image/video support) for consistent UX
+- Added delete confirmation modal for Vault list items matching the Review delete flow and responsive mobile/desktop layout
+- Kept Vault row preview actions working on desktop and mobile with new lightbox state wiring
+- Validated with diagnostics and production build (successful)
+
+### Reorder + Blob URL Stability (Vault/Review)
+- Added media reorder controls (move up/down) in Vault and Review edit preview lists so admins can reorder collection items before save
+- Reordering works for existing media and staged pending uploads in both pages
+- Fixed intermittent lob:... ERR_FILE_NOT_FOUND by correcting object URL lifecycle: no longer revoking all previews on each state change
+- Added safe cleanup strategy for preview object URLs (on item reset/unmount, and delayed revoke on single-item removal)
+- Validated with diagnostics and successful production build
+
+### Blob Preview URL Lifecycle Fix (Vault + Reviews)
+- Fixed intermittent lob: preview failures in Vault and Review edit dialogs caused by revoking object URLs during normal state updates
+- Switched dialog reset behavior to remount-driven form state instead of setState-in-effect synchronization
+- Kept object URL cleanup only for explicit item removal and dialog unmount, preventing ERR_FILE_NOT_FOUND during preview rendering
+- Added required orderedMedia default to keep Vault form shape aligned with the current shared type
+- Verified touched files with diagnostics; temporary tooling artifacts removed from workspace
+
+### Story Loop Logos CMS (Admin Gallery + Landing About)
+- Added a new Gallery sidebar child item and page at `/admin/gallery/story-loop-logos` to manage logos for the Story section animated loop
+- Created full admin CRUD service/API flow for story loop logos (`GET/POST/PATCH/DELETE`) with authenticated routes under `/api/admin/story-loop-logos`
+- Added public read endpoint `/api/public/story-loop-logos` and public client fetch helper for landing page consumption
+- Introduced Prisma model `StoryLoopLogo` and migration `20260531223000_story_loop_logos` for durable ordered logo storage
+- Implemented server-side Google Drive cleanup when replacing or deleting a story loop logo image
+- Updated `components/sections/about.tsx` to load loop logos dynamically from API with existing hardcoded logos as graceful fallback
+- Added shared type `StoryLoopLogoPublicItem` and admin/public client services for consistency
+- Regenerated Prisma client and verified successful production build with new routes/pages included
+
+### Story Loop Fallback Hardening + Minimum Threshold
+- Added shared story-loop config in `lib/story-loop-logos.ts` with `MIN_STORY_LOOP_LOGOS` and centralized default logo set
+- Updated landing Story/About loop to use centralized fallback logic: if DB logos are below minimum, it renders default animated logos to preserve the current full visual effect
+- Hardened `/api/admin/story-loop-logos` GET to gracefully return an empty successful payload when Prisma table `story_loop_logos` is not available yet (`P2021`) instead of throwing 500
+- Hardened `/api/public/story-loop-logos` GET with the same missing-table fallback behavior and minimum/fallback metadata
+- Added admin warning state in `/admin/gallery/story-loop-logos` when logo count is below minimum, including exact remaining count needed to exit fallback mode
+- Regenerated Prisma client after schema/model alignment and revalidated TypeScript compilation (`npx tsc --noEmit`)
+
+### Story Loop Images Terminology + Strict Minimum Delete Guard
+- Updated Story Loop admin page copy to use image terminology instead of logo terminology (titles, button labels, helper texts, empty states, and toasts)
+- Added strict API-level delete protection in `/api/admin/story-loop-logos/[id]`: deleting is blocked with `409` when current count is at or below `MIN_STORY_LOOP_LOGOS`
+- Added UI-level delete guard in Story Loop admin cards: delete actions are disabled when minimum count is reached, with clear tooltip/text feedback
+- Revalidated TypeScript compile using local compiler (`.\\node_modules\\.bin\\tsc.cmd --noEmit`)
+
+### Story Loop Internal Symbol Rename (Logo -> Image)
+- Renamed shared content type `StoryLoopLogoPublicItem` to `StoryLoopImagePublicItem` and updated all consumers
+- Renamed Story loop service APIs in code usage from Logo naming to Image naming (`fetch/create/update/delete` admin + public fetch)
+- Renamed internal API route symbols/payload mappers from Logo naming to Image naming while preserving existing route paths for compatibility
+- Revalidated full TypeScript compile after refactor (`.\\node_modules\\.bin\\tsc.cmd --noEmit`)
+- Simplified Story image edit dialog to image-only flow by removing manual name and sort-order inputs and clarifying order behavior via settings
+- Added Story image name derivation on save (from existing name, uploaded filename, or source URL fallback) so uploads remain admin-friendly without manual naming
+- Added admin Story settings state + UI control to toggle landing order randomization and wired it to the new settings API
+- Updated Story admin search/copy to focus on image fields and removed order label emphasis from cards for cleaner UX
+- Revalidated TypeScript compile after UX/settings integration (`C:\\laragon\\www\\2026-project\\adam-workcraft\\node_modules\\.bin\\tsc.cmd --noEmit`)
+- Simplified Story Loop admin page to Drive-only management: list images, add via upload modal, and delete with minimum-threshold guard
+- Removed Story Loop edit/external-link/search/filter/settings controls from the page to keep add/delete workflow minimal and focused
+- Updated `lib/services/admin-story-loop-logos.ts` create payload normalization so `name` and `order` are optional for image-only uploads
+- Revalidated type-check after Story Loop simplification (`npm.cmd exec tsc -- --noEmit`)
+- Updated admin navigation/tab naming from "Story Loop Logos" to "Story Loop Images" for UI consistency
+- Added new admin route alias page `/admin/gallery/story-loop-images` that re-exports existing Story loop manager for cleaner URL naming
+- Updated Story loop admin page symbol names/messages from logo wording to image wording (`AddStoryImageDialog`, `StoryLoopImagesPage`, auth last-page path)
+- Updated Story loop API log/error text from logo wording to image wording for consistency
+- Revalidated TypeScript compile after naming/route consistency pass (`cmd /c .\\node_modules\\.bin\\tsc.cmd --noEmit`)
+- Migrated canonical admin manager route to `/admin/gallery/story-loop-images` (full page implementation now lives on this route)
+- Converted legacy `/admin/gallery/story-loop-logos` page to server redirect for backward-compatible links/bookmarks
+- Revalidated type-check after canonical-route migration (`cmd /c .\\node_modules\\.bin\\tsc.cmd --noEmit`)
+- Updated Story image delete API to enforce Drive cleanup before DB removal; delete now returns error if Drive deletion fails
+- Updated Story image upload filename pattern to `story-loop-image-<slug>-<timestamp>-<random>.<ext>` for clearer Drive-side naming
+- Enhanced Story image admin list with Vault/Review-style preview flow: per-item Preview action, preload step, loading state, and fullscreen modal preview
+- Updated Story image Add modal media preview UI to match Review/Vault add-edit style (compact list row with thumbnail, filename, and remove icon)
+- Upgraded Story image Add modal to support multiple queued image files with a scrollable media list (thumbnail + filename + remove)
+- Ensured Story image uploads remain deferred until Save click (queued files are local preview only before save)
+- Updated Story image save handler to upload all queued files and create matching DB records in one save flow
+- Added Save-button required-count gating in Story image modal based on minimum-needed images (`max(1, MIN_STORY_LOOP_LOGOS - currentCount)`)
+- Applied pending Prisma migration `20260531223000_story_loop_logos` to current PostgreSQL database via `prisma migrate deploy`
+- Hardened Story loop admin create/update/delete API routes to handle Prisma `P2021` cleanly with user-safe migration guidance messages
+- Removed raw Prisma stack leakage from Story loop admin error responses by returning concise API messages
+- Refactored landing About Story loop strip generation to be adaptive to DB image count (dynamic base item expansion, row chunking, and repeated render sets)
+- Added deterministic random per-item scale/opacity in landing Story strip to preserve the organic mixed-size visual style from fallback mode
+- Updated marquee cycle-height logic to use computed cycle row count instead of fixed row index, reducing visible seam/restart artifacts
+- Refined landing Story strip sizing to fallback-like row templates (`ROW_LAYOUTS`) with small deterministic jitter for natural variation
+- Added subtle per-row horizontal motion variance on top of vertical marquee to reduce mechanical uniformity and improve organic flow
+- Improved landing Story strip random sizing robustness for mixed upload ratios by using per-item dynamic frame dimensions and `next/image` object-cover tiles
+- Optimized landing Story strip animation for smoother fallback-like performance by removing many per-row GSAP tweens and using a single GPU-friendly vertical marquee tween
+- Kept visual variety with static alternating row offsets (no extra continuous tween cost) and explicit `will-change`/`force3D` transform hints
+- Enabled optimized `next/image` delivery for landing Story loop tiles (removed `unoptimized`, added small `sizes` + quality tuning) to reduce decode/transfer cost while preserving admin workflow
+- Updated Next config image qualities to include 55 (`images.qualities: [55, 75]`) to resolve runtime warning spam from About strip Image components
+
+## [2026-06-01]
+
+### Contact Messages + Admin Inbox + Production Deployment Guide
+- Added `ContactMessage` persistence model in `prisma/schema.prisma` and created migration `prisma/migrations/20260601001000_contact_messages/migration.sql`
+- Added public contact API `app/api/public/messages/route.ts` with validation and DB persistence for landing contact form submissions
+- Added admin messages API `app/api/admin/messages/route.ts` with authenticated list and read/unread update support
+- Added message service clients `lib/services/public-content.ts` (`submitPublicContactMessage`) and `lib/services/admin-messages.ts`
+- Extended shared content types in `types/content.ts` with `PublicContactMessageInput` and `AdminContactMessageItem`
+- Updated `components/sections/contact.tsx` to submit to DB-backed API with form state, status feedback, and visibility-aware social icon rendering
+- Added new admin inbox page `app/admin/messages/page.tsx` with search/filter, message detail panel, and read/unread management
+- Updated admin navigation/title wiring: `components/admin/admin-sidebar.tsx` (Messages item), `app/admin/layout.tsx` (Messages tab title), `components/shared/icons.tsx` (MailIcon)
+- Regenerated Prisma client (`npm run db:generate`) and deployed migrations (`npm run db:deploy`) successfully
+- Added production deployment assets: `Dockerfile`, `docker-compose.production.yml`, `.dockerignore`
+- Added deployment runbook `docs/production-deployment-guide.md` covering Docker split (app+db), env setup, migration workflow, pull/redeploy, backup/restore, and Google Drive production notes
+- Updated `.env.example` with Docker host guidance and production runtime note
+
+### Messages Badge + Contact Anti-Spam Hardening
+- Updated `app/api/admin/messages/route.ts` GET response to include `unreadCount` and `totalCount` summary fields for lightweight admin badge updates
+- Updated `lib/services/admin-messages.ts` with `fetchAdminMessageSummary()` for sidebar unread-count polling
+- Updated `components/admin/admin-sidebar.tsx` with unread message badges (desktop expanded/collapsed and mobile), periodic refresh, and event-driven sync (`admin-messages-updated`)
+- Updated `app/admin/messages/page.tsx` to dispatch message-update events after read/unread changes so sidebar badges update immediately
+- Hardened `app/api/public/messages/route.ts` with basic anti-spam protections: hidden honeypot field handling and per-IP+email rate limit (5 requests / 10 minutes)
+- Updated `types/content.ts` to support optional honeypot field in public contact payload (`website`)
+- Updated `components/sections/contact.tsx` with hidden honeypot input wiring and payload reset flow after successful submit
+
+### Admin Header New-Message Toast Notifier
+- Updated `components/admin/admin-header.tsx` to poll message summary and display info toast when unread message count increases
+- Added first-load suppression so existing unread items do not trigger notifications on initial page load
+- Added visibility-aware refresh and periodic sync to detect new incoming contact messages while admins work across pages
+
+### Admin Messages Layout + Contact CTA Cleanup
+- Refactored `app/admin/messages/page.tsx` into a true 12-column split (`col-8` table list + `col-4` detail panel) for clearer inbox workflow
+- Replaced card-based message list with table-style rows (Sender, Message, Status, Received) and sticky table header for long lists
+- Updated filtered empty state in `app/admin/messages/page.tsx` to render centered vertically and horizontally in the list area
+- Removed redundant `Submit a Review` button/link block from `components/sections/contact.tsx` since review entry already exists in the Review section
+
+## [2026-06-13]
+
+### Dev Origin Config & TypeScript Compilation Fixes
+- Modified `next.config.ts` — Added `"192.168.0.2"` and `"192.168.0.2:3000"` to `allowedDevOrigins` to resolve CORS / Webpack HMR WebSocket connection errors on local network.
+- Modified `app/api/admin/profile/route.ts` — Made `getRequestUsername` asynchronous and awaited `verifyAdminSessionToken` to resolve TS2801 promise-always-defined type check warning.
+- Modified `app/api/admin/story-loop-logos/settings/route.ts` — Cast `nextSettings` configuration value to `any` inside Prisma upsert to bypass strict JSON type assignment checks (TS2322).
+- Modified `components/ui/magnetic-button.tsx` — Extended `MagneticButtonProps` to accept `disabled?: boolean` and forwarded it to the underlying HTML button element to fix TS2322 type mismatch.
+- Modified `components/sections/contact.tsx` — Applied the updated `disabled={submitting}` state cleanly to `MagneticButton`.
+
+### Removed Custom Cursor from Landing Page
+- Modified `app/(public)/layout.tsx` — Removed `<CustomCursor />` component and its import to permanently disable the custom cursor on the public-facing site.
+
+### Fixed Duplicate React Keys in Gallery Crossfade
+- Modified `components/sections/gallery.tsx` — Prefixed outgoing/current image keys with `outgoing-` and `current-` to prevent key collisions when image URLs are duplicated in the `images` array (e.g., graphic items where `thumb` equals the only `media` entry).
