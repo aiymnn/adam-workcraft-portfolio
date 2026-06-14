@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import gsap from 'gsap';
+import { isAuthenticated, setLastPage } from '@/lib/services/auth';
+import type { PublicVaultCollection } from '@/types/content';
 import { createAdminVaultCollection, deleteAdminVaultCollection, fetchAdminVaultCollections, updateAdminVaultCollection, reorderAdminVaultCollections } from '@/lib/services/admin-vault';
 import { deleteAdminMediaByUrl, uploadAdminMedia } from '@/lib/services/admin-media';
 import { Button } from '@/components/ui/button';
