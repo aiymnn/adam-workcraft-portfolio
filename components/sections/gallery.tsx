@@ -101,6 +101,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
   const images = !item.isVideo ? [item.thumb, ...item.media] : [item.thumb];
   const [currentSrc, setCurrentSrc] = useState(images[0] || '');
   const [outgoingSrc, setOutgoingSrc] = useState<string | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const idxRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const visibleRef = useRef(false);
@@ -110,6 +111,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
   const videoARef = useRef<HTMLVideoElement>(null);
   const videoBRef = useRef<HTMLVideoElement>(null);
   const activeRef = useRef<'a' | 'b'>('a');
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const videoIdxRef = useRef(0);
   
   const isVideoCard = item.category === 'Videography' && videoSources.length > 0;
@@ -148,6 +150,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
         setOutgoingSrc(images[idxRef.current]);
         idxRef.current = next;
         setCurrentSrc(images[next]);
+        setCurrentImageIndex(next);
       }
     }, 2000);
 
@@ -197,6 +200,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
       gsap.to(toEl, { opacity: 1, duration: 0.5, ease: 'power2.inOut' });
 
       videoIdxRef.current = nextIdx;
+      setCurrentVideoIndex(nextIdx);
       activeRef.current = isAActive ? 'b' : 'a';
     }, 15000);
 
@@ -269,6 +273,10 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
 
   const handleClick = () => onOpenCollection(item);
 
+  const totalItems = isVideoCard ? videoSources.length : images.length;
+  const currentItemNum = isVideoCard ? currentVideoIndex + 1 : currentImageIndex + 1;
+  const counterText = totalItems > 1 ? ` — ${currentItemNum} of ${totalItems}` : '';
+
   return (
     <div
       ref={cardRef}
@@ -335,7 +343,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
 
       <div className="relative z-10 translate-y-4 transition-transform duration-500 group-hover:translate-y-0" style={{ transform: 'translateZ(30px)' }}>
         <span className="mb-4 inline-block rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-semibold tracking-widest uppercase text-white backdrop-blur-md transition-colors duration-300 group-hover:border-amber-500/50 group-hover:bg-amber-500/20 group-hover:text-amber-200">
-          {catLabel(item.category)}
+          {catLabel(item.category)}{counterText}
         </span>
         <h3 className="text-xl font-bold text-white transition-colors duration-300 md:text-2xl lg:text-3xl" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
           {item.title}
