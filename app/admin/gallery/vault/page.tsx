@@ -296,7 +296,28 @@ function VaultRow({ item, index, previewLoadingId, onUpdate, onEdit, onPreview, 
           </span>
         </div>
 
-
+        <div className="mx-4 mt-3 hidden flex-col md:mx-0 md:mt-0 md:flex md:flex-row md:items-center md:gap-0.5">
+          <button
+            onClick={() => onReorder?.(item.id, 'up')}
+            disabled={isFirst}
+            className="flex size-7 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Move up"
+          >
+            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+          <button
+            onClick={() => onReorder?.(item.id, 'down')}
+            disabled={isLast}
+            className="flex size-7 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Move down"
+          >
+            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
 
         <div className="mx-4 mt-3 hidden md:mx-0 md:mt-0 md:flex md:items-center md:gap-1">
           <button
@@ -337,6 +358,28 @@ function VaultRow({ item, index, previewLoadingId, onUpdate, onEdit, onPreview, 
           <p>
             <span className="text-[var(--text-dim)]">Category:</span> {item.category}
           </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onReorder?.(item.id, 'up')}
+            disabled={isFirst}
+            className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--button-hover)] hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+            </svg>
+            Up
+          </button>
+          <button
+            onClick={() => onReorder?.(item.id, 'down')}
+            disabled={isLast}
+            className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--button-hover)] hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+            Down
+          </button>
         </div>
         <div className="flex gap-3">
           <button
@@ -1156,15 +1199,15 @@ export default function PersonalVaultPage() {
                       <VaultRow
                         key={item.id}
                         item={item}
-                        index={index}
+                        index={sortedCollections.findIndex(c => c.id === item.id)}
                         previewLoadingId={previewLoadingId}
                         onUpdate={handleUpdate}
                         onEdit={handleEdit}
                         onPreview={handlePreview}
                         onDelete={setDeleteConfirm}
                         onReorder={handleReorder}
-                        isFirst={index === 0}
-                        isLast={index === filteredCollections.length - 1}
+                        isFirst={sortedCollections.findIndex(c => c.id === item.id) === 0}
+                        isLast={sortedCollections.findIndex(c => c.id === item.id) === sortedCollections.length - 1}
                       />
                     ))}
                   </div>

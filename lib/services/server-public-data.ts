@@ -44,7 +44,7 @@ export async function getServerPublicCollection(section?: 'about' | 'expertise' 
 export async function getServerPublicVaults(limit = 6): Promise<PublicVaultCollection[]> {
   try {
     const vaults = await db.vaultCollection.findMany({
-      orderBy: [{ createdAt: 'desc' }],
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       take: limit,
       include: {
         media: {
