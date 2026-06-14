@@ -257,10 +257,8 @@ export default function LightboxModal({ isOpen, collection, onClose }: LightboxM
 
         <div className="mt-4 text-center md:mt-6">
           <p className="text-base font-medium text-[var(--text)] md:text-lg">{collection.title}</p>
-          <p className="mt-1 text-xs text-[var(--text-dim)] md:text-sm">
-            {isVideo
-              ? t.lightbox.videography
-              : `${collection.category} — ${mediaIndex + 1} ${t.lightbox.of} ${total}`}
+          <p className="mt-1 text-xs text-[var(--text-dim)] md:text-sm uppercase tracking-widest">
+            {`${collection.category === 'Videography' ? (t.gallery.videography || 'Videography') : (collection.category === 'Photography' ? t.gallery.photography || 'Photography' : collection.category)} — ${mediaIndex + 1} ${t.lightbox.of || 'OF'} ${total}`}
           </p>
         </div>
       </div>
