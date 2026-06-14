@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     const category = normalizeText(body.category);
     const imageMedia = normalizeUrlList(body.media);
     const videoMedia = normalizeUrlList(body.videos);
-    const isVideo = Boolean(body.isVideo);
+    const isVideo = category === 'Videography';
     const columnSpan = Number.isFinite(body.columnSpan) ? Math.min(3, Math.max(1, Number(body.columnSpan))) : 1;
     const rowSpan = Number.isFinite(body.rowSpan) ? Math.min(2, Math.max(1, Number(body.rowSpan))) : 1;
 

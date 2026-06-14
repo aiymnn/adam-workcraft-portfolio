@@ -111,6 +111,8 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
   const videoBRef = useRef<HTMLVideoElement>(null);
   const activeRef = useRef<'a' | 'b'>('a');
   const videoIdxRef = useRef(0);
+  
+  const isVideoCard = item.category === 'Videography' && videoSources.length > 0;
 
   const catLabel = (cat: string) => {
     if (cat === 'Photography') return t.gallery.photography || 'Photography';
@@ -122,7 +124,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
     const observer = new IntersectionObserver(
       ([entry]) => {
         visibleRef.current = entry.isIntersecting;
-        if (item.isVideo) {
+        if (isVideoCard) {
           const el = activeRef.current === 'a' ? videoARef.current : videoBRef.current;
           if (entry.isIntersecting) {
             el?.play().catch(() => { });
@@ -135,10 +137,10 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
     );
     if (cardRef.current) observer.observe(cardRef.current);
     return () => observer.disconnect();
-  }, [item.isVideo]);
+  }, [isVideoCard]);
 
   useEffect(() => {
-    if (item.isVideo || images.length <= 1) return;
+    if (isVideoCard || images.length <= 1) return;
 
     intervalRef.current = setInterval(() => {
       if (visibleRef.current && !hoverRef.current) {
@@ -150,10 +152,10 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
     }, 2000);
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [item.isVideo, images]);
+  }, [isVideoCard, images]);
 
   useEffect(() => {
-    if (!item.isVideo || !videoSources.length) return;
+    if (!isVideoCard || !videoSources.length) return;
 
     const init = () => {
       if (videoARef.current) {
@@ -172,10 +174,10 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
       }
     };
     init();
-  }, [item.isVideo, videoSources]);
+  }, [isVideoCard, videoSources]);
 
   useEffect(() => {
-    if (!item.isVideo || videoSources.length <= 1) return;
+    if (!isVideoCard || videoSources.length <= 1) return;
 
     intervalRef.current = setInterval(() => {
       if (!visibleRef.current || hoverRef.current) return;
@@ -199,7 +201,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
     }, 15000);
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [item.isVideo, videoSources]);
+  }, [isVideoCard, videoSources]);
 
   useEffect(() => {
     if (!outgoingSrc) return;
@@ -277,7 +279,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
       className={`group relative flex cursor-pointer items-end overflow-hidden rounded-3xl border border-white/10 bg-stone-900/40 p-6 transition-all duration-500 hover:border-amber-500/30 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.8)] md:p-8 ${layoutClass} group-hover/gallery:opacity-40 group-hover/gallery:blur-[2px] hover:!opacity-100 hover:!blur-none hover:z-20`}
       style={{ touchAction: 'manipulation', transformStyle: 'preserve-3d' }}
     >
-      {item.isVideo ? (
+      {isVideoCard ? (
         <div className="absolute inset-0">
           <video
             ref={videoARef}
@@ -328,7 +330,7 @@ function GalleryCard({ item, onOpenCollection, layoutClass }: { item: Collection
         className="pointer-events-none absolute left-0 top-0 z-50 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-amber-500/90 text-[10px] font-bold tracking-[0.2em] text-black opacity-0 shadow-xl backdrop-blur-md"
         style={{ transform: 'scale(0)' }}
       >
-        {item.isVideo ? 'PLAY' : 'VIEW'}
+        {isVideoCard ? 'PLAY' : 'VIEW'}
       </div>
 
       <div className="relative z-10 translate-y-4 transition-transform duration-500 group-hover:translate-y-0" style={{ transform: 'translateZ(30px)' }}>

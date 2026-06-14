@@ -99,38 +99,24 @@ export async function PATCH(
 
     let categoryName: string | undefined;
     if (category !== undefined) {
-      if (!category) {
-        return NextResponse.json({ success: false, message: 'Category cannot be empty' }, { status: 400 });
+      if (category !== 'Photography' && category !== 'Videography') {
+        return NextResponse.json({ success: false, message: 'Invalid category. Must be Photography or Videography.' }, { status: 400 });
       }
-
-      const categoryRows = await db.$queryRaw<Array<{ name: string }>>`
-        SELECT name
-        FROM vault_categories
-        WHERE LOWER(name) = LOWER(${category})
-          AND is_active = true
-        LIMIT 1
-      `;
-      const categoryExists = categoryRows[0];
-
-      if (!categoryExists) {
-        return NextResponse.json({ success: false, message: 'Category does not exist' }, { status: 400 });
-      }
-
-      categoryName = categoryExists.name;
+      categoryName = category;
     }
 
     const existingImages = existing.media.filter((item) => item.type === 'image').map((item) => item.src);
     const existingVideos = existing.media.filter((item) => item.type === 'video').map((item) => item.src);
     const nextImages = imageMedia ?? existingImages;
     const nextVideos = videoMedia ?? existingVideos;
-    const nextIsVideo = body.isVideo !== undefined ? Boolean(body.isVideo) : existing.isVideo;
+    const nextIsVideo = categoryName !== undefined ? categoryName === 'Videography' : existing.isVideo;
 
     if (nextIsVideo && nextVideos.length === 0) {
-      return NextResponse.json({ success: false, message: 'At least one video is required for video collections' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'At least one video is required for Videography collections' }, { status: 400 });
     }
 
     if (!nextIsVideo && nextImages.length === 0) {
-      return NextResponse.json({ success: false, message: 'At least one image is required for image collections' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'At least one image is required for Photography collections' }, { status: 400 });
     }
 
     await db.$transaction(async (tx) => {
@@ -152,8 +138,10 @@ export async function PATCH(
 
       const updates: Record<string, unknown> = {};
       if (title !== undefined) updates.title = title;
-      if (categoryName !== undefined) updates.category = categoryName;
-      if (body.isVideo !== undefined) updates.isVideo = Boolean(body.isVideo);
+      if (categoryName !== undefined) {
+        updates.category = categoryName;
+        updates.isVideo = categoryName === 'Videography';
+      }
       if (body.columnSpan !== undefined) updates.columnSpan = Math.min(3, Math.max(1, Number(body.columnSpan)));
       if (body.rowSpan !== undefined) updates.rowSpan = Math.min(2, Math.max(1, Number(body.rowSpan)));
       if (body.order !== undefined) updates.sortOrder = Math.max(0, Number(body.order));

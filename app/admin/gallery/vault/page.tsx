@@ -258,7 +258,7 @@ interface VaultRowProps {
 }
 
 function VaultRow({ item, index, previewLoadingId, onUpdate, onEdit, onPreview, onDelete, onReorder, isFirst, isLast }: VaultRowProps) {
-  const isVideo = item.isVideo;
+  const isVideo = item.category === 'Videography' && (item.videos?.length ?? 0) > 0;
   const hasMedia = item.media.length > 0 || (item.videos?.length ?? 0) > 0;
   const isPreviewLoading = previewLoadingId === item.id;
 
@@ -947,7 +947,7 @@ export default function PersonalVaultPage() {
         ...updated,
         media: nextImages,
         videos: nextVideos,
-        isVideo: nextImages.length === 0 && nextVideos.length > 0,
+        isVideo: updated.category === 'Videography',
       };
 
       if (!updated.id) {
