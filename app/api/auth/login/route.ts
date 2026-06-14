@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       const token = await createAdminSessionToken(admin.username, authSecret);
       const maxAge = getAdminSessionTtlSeconds();
       // Only enforce secure cookies in production IF the site is accessed via HTTPS.
-      const isSecure = process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https');
+      const isSecure = process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') === true;
       const response = NextResponse.json({ success: true, message: 'Authenticated' });
 
       response.cookies.set(ADMIN_SESSION_COOKIE, token, {
