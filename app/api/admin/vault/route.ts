@@ -118,17 +118,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'At least one image is required for image collections' }, { status: 400 });
     }
 
-    const categoryRows = await db.$queryRaw<Array<{ name: string }>>`
-      SELECT name
-      FROM vault_categories
-      WHERE LOWER(name) = LOWER(${category})
-        AND is_active = true
-      LIMIT 1
-    `;
-    const categoryExists = categoryRows[0];
-
-    if (!categoryExists) {
-      return NextResponse.json({ success: false, message: 'Category does not exist' }, { status: 400 });
+    if (category !== 'Photography' && category !== 'Videography') {
+      return NextResponse.json({ success: false, message: 'Invalid category. Must be Photography or Videography.' }, { status: 400 });
     }
 
     const fallbackThumb = imageMedia[0] || videoMedia[0] || '';
@@ -136,7 +127,7 @@ export async function POST(request: NextRequest) {
     const created = await db.vaultCollection.create({
       data: {
         title,
-        category: categoryExists.name,
+        category,
         thumb: fallbackThumb,
         code: generateVaultCode(),
         isVideo,

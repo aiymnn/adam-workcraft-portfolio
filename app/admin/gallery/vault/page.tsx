@@ -3,11 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import gsap from 'gsap';
-import { isAuthenticated, setLastPage } from '@/lib/services/auth';
-import type { PublicVaultCollection, VaultCategoryItem } from '@/types/content';
 import { createAdminVaultCollection, deleteAdminVaultCollection, fetchAdminVaultCollections, updateAdminVaultCollection, reorderAdminVaultCollections } from '@/lib/services/admin-vault';
-import { createAdminVaultCategory, deleteAdminVaultCategory, fetchAdminVaultCategories, updateAdminVaultCategory } from '@/lib/services/admin-vault-categories';
 import { deleteAdminMediaByUrl, uploadAdminMedia } from '@/lib/services/admin-media';
 import { Button } from '@/components/ui/button';
 import { Select, type SelectOption } from '@/components/ui/select';
@@ -771,7 +767,6 @@ export default function PersonalVaultPage() {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [collections, setCollections] = useState<PublicVaultCollection[]>([]);
-  const [categories, setCategories] = useState<VaultCategoryItem[]>([]);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -782,12 +777,6 @@ export default function PersonalVaultPage() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [saveUploadProgress, setSaveUploadProgress] = useState(0);
   const [saveUploadStage, setSaveUploadStage] = useState<'idle' | 'uploading' | 'finalizing'>('idle');
-  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editingCategoryName, setEditingCategoryName] = useState('');
-  const [isSavingCategory, setIsSavingCategory] = useState(false);
-  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -804,15 +793,15 @@ export default function PersonalVaultPage() {
     return `vault-${slug}-${type}-${stamp}-${random}.${ext}`;
   }, []);
 
-  const categoryOptions = useMemo<SelectOption[]>(
-    () => categories.filter((item) => item.isActive).map((item) => ({ value: item.name, label: item.name })),
-    [categories],
-  );
+  const categoryOptions: SelectOption[] = [
+    { value: 'Photography', label: 'Photography' },
+    { value: 'Videography', label: 'Videography' },
+  ];
 
-  const vaultFilterOptions = useMemo(
-    () => [{ id: 'all', label: 'All' }, ...categoryOptions.map((item) => ({ id: item.value, label: item.label }))],
-    [categoryOptions],
-  );
+  const vaultFilterOptions = [
+    { id: 'all', label: 'All' },
+    ...categoryOptions.map((item) => ({ id: item.value, label: item.label }))
+  ];
 
   useEffect(() => {
     let active = true;
@@ -825,13 +814,9 @@ export default function PersonalVaultPage() {
       }
 
       try {
-        const [rows, categoryRows] = await Promise.all([
-          fetchAdminVaultCollections(),
-          fetchAdminVaultCategories(),
-        ]);
+        const rows = await fetchAdminVaultCollections();
         if (!active) return;
         setCollections(rows);
-        setCategories(categoryRows);
       } catch (error) {
         if (!active) return;
         toast.error(error instanceof Error ? error.message : 'Failed to load vault data');
@@ -852,7 +837,6 @@ export default function PersonalVaultPage() {
   );
 
   const vaultStats = useMemo(() => {
-    const categoriesCount = new Set(collections.map((item) => item.category)).size;
     const totalAssets = collections.reduce((acc, item) => {
       const imageCount = item.media.length;
       const videoCount = item.videos?.length ?? 0;
@@ -860,7 +844,6 @@ export default function PersonalVaultPage() {
     }, 0);
     return {
       total: collections.length,
-      categoriesCount,
       totalAssets,
     };
   }, [collections]);
@@ -1061,61 +1044,7 @@ export default function PersonalVaultPage() {
     });
   }, [categoryOptions, collections.length, toast]);
 
-  const handleCreateCategory = useCallback(async () => {
-    const name = newCategoryName.trim();
-    if (!name) return;
 
-    setIsSavingCategory(true);
-    try {
-      const created = await createAdminVaultCategory(name);
-      setCategories((prev) => [...prev, created].sort((a, b) => a.sortOrder - b.sortOrder));
-      setNewCategoryName('');
-      toast.success('Category added');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create category');
-    } finally {
-      setIsSavingCategory(false);
-    }
-  }, [newCategoryName, toast]);
-
-  const handleStartEditCategory = useCallback((category: VaultCategoryItem) => {
-    setEditingCategoryId(category.id);
-    setEditingCategoryName(category.name);
-  }, []);
-
-  const handleSaveCategoryEdit = useCallback(async () => {
-    if (!editingCategoryId) return;
-    const nextName = editingCategoryName.trim();
-    if (!nextName) return;
-
-    setIsSavingCategory(true);
-    try {
-      const previousName = categories.find((item) => item.id === editingCategoryId)?.name ?? editingCategoryName;
-      const updated = await updateAdminVaultCategory(editingCategoryId, nextName);
-      setCategories((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
-      setCollections((prev) => prev.map((item) => (item.category === previousName ? { ...item, category: updated.name } : item)));
-      setEditingCategoryId(null);
-      setEditingCategoryName('');
-      toast.success('Category updated');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update category');
-    } finally {
-      setIsSavingCategory(false);
-    }
-  }, [categories, editingCategoryId, editingCategoryName, toast]);
-
-  const handleDeleteCategory = useCallback(async (category: VaultCategoryItem) => {
-    setDeletingCategoryId(category.id);
-    try {
-      await deleteAdminVaultCategory(category.id);
-      setCategories((prev) => prev.filter((item) => item.id !== category.id));
-      toast.success('Category deleted');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete category');
-    } finally {
-      setDeletingCategoryId(null);
-    }
-  }, [toast]);
 
   if (!mounted) {
     return null;
@@ -1149,14 +1078,6 @@ export default function PersonalVaultPage() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setCategoryManagerOpen(true)}
-                    className="border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
-                  >
-                    Manage Categories
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
                     onClick={handleAddNew}
                     className="flex items-center gap-1.5 border border-[var(--border)] bg-[var(--button)] text-[var(--text-muted)] hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
                   >
@@ -1187,7 +1108,6 @@ export default function PersonalVaultPage() {
                 <GallerySummaryGrid
                   items={[
                     { label: 'Total Collections', value: vaultStats.total },
-                    { label: 'Active Categories', value: vaultStats.categoriesCount },
                     { label: 'Media Assets', value: vaultStats.totalAssets },
                   ]}
                 />
@@ -1306,101 +1226,7 @@ export default function PersonalVaultPage() {
         </div>
       )}
 
-      {categoryManagerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setCategoryManagerOpen(false)}>
-          <div className="w-full max-w-xl rounded-xl border border-[var(--border)] bg-[var(--bg-mid)] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[var(--text)]">Manage Vault Categories</h3>
-              <button onClick={() => setCategoryManagerOpen(false)} className="flex size-7 items-center justify-center rounded-md text-[var(--text-dim)] hover:bg-[var(--button-hover)]">
-                <XIcon />
-              </button>
-            </div>
 
-            <div className="mb-3 flex gap-2">
-              <input
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30"
-                placeholder="New category name"
-              />
-              <button
-                onClick={handleCreateCategory}
-                disabled={isSavingCategory}
-                className="rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
-              >
-                Add
-              </button>
-            </div>
-
-            <div className="scrollbar-hidden max-h-72 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-start)] p-2">
-              {categories.length === 0 ? (
-                <p className="py-6 text-center text-xs text-[var(--text-dim)]">No categories yet</p>
-              ) : (
-                categories.map((category) => {
-                  const inUse = (category.usageCount ?? 0) > 0;
-                  const isEditing = editingCategoryId === category.id;
-                  const isDeleting = deletingCategoryId === category.id;
-                  return (
-                    <div key={category.id} className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-mid)] p-2">
-                      {isEditing ? (
-                        <input
-                          value={editingCategoryName}
-                          onChange={(e) => setEditingCategoryName(e.target.value)}
-                          className="min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--button)] px-2.5 py-1.5 text-sm text-[var(--text)] outline-none transition-colors focus:border-amber-700/50 focus:ring-1 focus:ring-amber-700/30"
-                        />
-                      ) : (
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm text-[var(--text)]">{category.name}</p>
-                          <p className="text-[11px] text-[var(--text-dim)]">Used by {category.usageCount ?? 0} collection{(category.usageCount ?? 0) !== 1 ? 's' : ''}</p>
-                        </div>
-                      )}
-
-                      {isEditing ? (
-                        <>
-                          <button
-                            onClick={handleSaveCategoryEdit}
-                            disabled={isSavingCategory || Boolean(deletingCategoryId)}
-                            className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)] disabled:opacity-60"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingCategoryId(null);
-                              setEditingCategoryName('');
-                            }}
-                            className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleStartEditCategory(category)}
-                            disabled={isSavingCategory || Boolean(deletingCategoryId)}
-                            className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-[var(--text-dim)] transition-colors hover:bg-[var(--button-hover)] hover:text-[var(--text)]"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteCategory(category)}
-                            disabled={isSavingCategory || Boolean(deletingCategoryId) || inUse}
-                            className="rounded-md border border-[var(--border)] bg-[var(--button)] px-2 py-1 text-xs font-medium text-red-300 transition-colors hover:bg-red-900/30 disabled:opacity-40"
-                            title={inUse ? 'Cannot delete a category currently used by collections' : 'Delete category'}
-                          >
-                            {isDeleting ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

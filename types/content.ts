@@ -63,14 +63,7 @@ export interface AdminContactMessageItem {
   createdAt: string;
 }
 
-export interface VaultCategoryItem {
-  id: string;
-  name: string;
-  slug: string;
-  sortOrder: number;
-  isActive: boolean;
-  usageCount?: number;
-}
+
 
 export interface StoryLoopImagePublicItem {
   id: string;
