@@ -114,3 +114,13 @@ export async function deleteAdminVaultCollection(id: string): Promise<void> {
   });
   await assertOk(res);
 }
+
+export async function reorderAdminVaultCollections(collections: Array<{ id: string; sortOrder: number }>): Promise<void> {
+  const res = await fetch('/api/admin/vault/reorder', {
+    method: 'PATCH',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ collections }),
+  });
+  await assertOk(res);
+}

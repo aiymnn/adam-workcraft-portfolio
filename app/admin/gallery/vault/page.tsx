@@ -6,7 +6,7 @@ import Image from 'next/image';
 import gsap from 'gsap';
 import { isAuthenticated, setLastPage } from '@/lib/services/auth';
 import type { PublicVaultCollection, VaultCategoryItem } from '@/types/content';
-import { createAdminVaultCollection, deleteAdminVaultCollection, fetchAdminVaultCollections, updateAdminVaultCollection } from '@/lib/services/admin-vault';
+import { createAdminVaultCollection, deleteAdminVaultCollection, fetchAdminVaultCollections, updateAdminVaultCollection, reorderAdminVaultCollections } from '@/lib/services/admin-vault';
 import { createAdminVaultCategory, deleteAdminVaultCategory, fetchAdminVaultCategories, updateAdminVaultCategory } from '@/lib/services/admin-vault-categories';
 import { deleteAdminMediaByUrl, uploadAdminMedia } from '@/lib/services/admin-media';
 import { Button } from '@/components/ui/button';
@@ -20,27 +20,7 @@ import { MediaDropzone } from '@/components/admin/gallery/media-dropzone';
 import { GallerySearchFilterBar, GallerySummaryGrid } from '@/components/admin/gallery/gallery-shared-ui';
 import { useToast } from '@/hooks/use-toast';
 
-const WIDTH_OPTIONS: SelectOption[] = [
-  { value: '1', label: '1 Col' },
-  { value: '2', label: '2 Cols' },
-  { value: '3', label: '3 Cols' },
-];
 
-const HEIGHT_OPTIONS: SelectOption[] = [
-  { value: '1', label: '1 Row' },
-  { value: '2', label: '2 Rows' },
-];
-
-const SPAN_LABELS: Record<number, string> = {
-  1: 'Standard',
-  2: 'Wide',
-  3: 'Full',
-};
-
-const ROW_LABELS: Record<number, string> = {
-  1: 'Standard',
-  2: 'Tall',
-};
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() => {
@@ -273,9 +253,12 @@ interface VaultRowProps {
   onEdit: (item: PublicVaultCollection) => void;
   onPreview: (item: PublicVaultCollection) => void;
   onDelete: (id: string) => void;
+  onReorder?: (id: string, direction: 'up' | 'down') => void;
+  isFirst?: boolean;
+  isLast?: boolean;
 }
 
-function VaultRow({ item, index, previewLoadingId, onUpdate, onEdit, onPreview, onDelete }: VaultRowProps) {
+function VaultRow({ item, index, previewLoadingId, onUpdate, onEdit, onPreview, onDelete, onReorder, isFirst, isLast }: VaultRowProps) {
   const isVideo = item.isVideo;
   const hasMedia = item.media.length > 0 || (item.videos?.length ?? 0) > 0;
   const isPreviewLoading = previewLoadingId === item.id;
@@ -318,20 +301,7 @@ function VaultRow({ item, index, previewLoadingId, onUpdate, onEdit, onPreview, 
           </span>
         </div>
 
-        <div className="mx-4 mt-3 hidden md:mx-0 md:mt-0 md:flex md:items-center md:gap-2">
-          <Select
-            value={String(item.columnSpan)}
-            options={WIDTH_OPTIONS}
-            onChange={(val) => onUpdate(item.id, { columnSpan: Number(val) })}
-            className="w-24"
-          />
-          <Select
-            value={String(item.rowSpan)}
-            options={HEIGHT_OPTIONS}
-            onChange={(val) => onUpdate(item.id, { rowSpan: Number(val) })}
-            className="w-24"
-          />
-        </div>
+
 
         <div className="mx-4 mt-3 hidden md:mx-0 md:mt-0 md:flex md:items-center md:gap-1">
           <button
@@ -371,10 +341,6 @@ function VaultRow({ item, index, previewLoadingId, onUpdate, onEdit, onPreview, 
         <div className="mb-3 space-y-1 text-xs text-[var(--text-muted)]">
           <p>
             <span className="text-[var(--text-dim)]">Category:</span> {item.category}
-            <span className="mx-2">&middot;</span>
-            <span className="text-[var(--text-dim)]">Width:</span> {SPAN_LABELS[item.columnSpan] ?? item.columnSpan}
-            <span className="mx-2">&middot;</span>
-            <span className="text-[var(--text-dim)]">Height:</span> {ROW_LABELS[item.rowSpan] ?? item.rowSpan}
           </p>
         </div>
         <div className="flex gap-3">
@@ -655,22 +621,6 @@ function EditDialog({ open, item, categoryOptions, saving, uploadProgress, uploa
                 value={form.category}
                 options={effectiveCategoryOptions}
                 onChange={(val) => setForm((prev) => ({ ...prev, category: val }))}
-              />
-            </div>
-            <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-[var(--text-dim)]">Card Width</label>
-              <Select
-                value={String(form.columnSpan)}
-                options={WIDTH_OPTIONS}
-                onChange={(val) => setForm((prev) => ({ ...prev, columnSpan: Number(val) }))}
-              />
-            </div>
-            <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-[var(--text-dim)]">Card Height</label>
-              <Select
-                value={String(form.rowSpan)}
-                options={HEIGHT_OPTIONS}
-                onChange={(val) => setForm((prev) => ({ ...prev, rowSpan: Number(val) }))}
               />
             </div>
           </div>
@@ -1066,6 +1016,35 @@ export default function PersonalVaultPage() {
     }
   }, [collections, toast]);
 
+  const handleReorder = useCallback(async (id: string, direction: 'up' | 'down') => {
+    const index = collections.findIndex(c => c.id === id);
+    if (index === -1) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === collections.length - 1) return;
+
+    const newCollections = [...collections];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    // Swap
+    const temp = newCollections[index];
+    newCollections[index] = newCollections[targetIndex];
+    newCollections[targetIndex] = temp;
+
+    // Update order values based on array index
+    const updatedCollections = newCollections.map((c, i) => ({ ...c, order: i }));
+    setCollections(updatedCollections);
+
+    try {
+      await reorderAdminVaultCollections(
+        updatedCollections.map(c => ({ id: c.id, sortOrder: c.order }))
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save new order');
+      // Revert on failure
+      setCollections(collections);
+    }
+  }, [collections, toast]);
+
   const handleAddNew = useCallback(() => {
     const defaultCategory = categoryOptions[0]?.value || '';
 
@@ -1256,6 +1235,9 @@ export default function PersonalVaultPage() {
                         onEdit={handleEdit}
                         onPreview={handlePreview}
                         onDelete={setDeleteConfirm}
+                        onReorder={handleReorder}
+                        isFirst={index === 0}
+                        isLast={index === filteredCollections.length - 1}
                       />
                     ))}
                   </div>
