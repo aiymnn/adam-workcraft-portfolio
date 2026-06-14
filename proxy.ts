@@ -16,7 +16,12 @@ export async function proxy(request: NextRequest) {
   if (pathname !== ADMIN_LOGIN_PATH && !authenticated) {
     const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
     loginUrl.searchParams.set('next', pathname);
-    return NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(loginUrl);
+    // DEBUG HEADERS
+    response.headers.set('x-debug-token-exists', token ? 'yes' : 'no');
+    response.headers.set('x-debug-secret-exists', secret ? 'yes' : 'no');
+    response.headers.set('x-debug-auth-result', String(authenticated));
+    return response;
   }
 
   return NextResponse.next();
