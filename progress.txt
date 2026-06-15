@@ -1,6 +1,33 @@
+## [2026-06-15]
+
+### Admin Panel Polish
+
+- Added a maximum limit of 5 videos for the About Section (Collage) in the Public Collection Add Media modal to strictly enforce the landing page's 5-slot masonry grid design.
+- Replaced the inline delete confirmation button in the Public Collection admin page with a proper, full-screen backdrop modal (consistent with other admin sections) to prevent accidental deletions.
+
+## [2026-06-15]
+
+### Admin Panel Polish
+
+- Updated the Public Collection Add Media modal in /admin/gallery/public-collection to strictly enforce a video-only rule for the About Section (Collage). Drag-and-dropping or selecting images will now be rejected with an error toast to preserve the intended layout.
+
+## [2026-06-15]
+
+### Bug Fixes & Refactoring
+
+- Fixed a hydration mismatch error (#418) in the Admin Messages page by initializing window-dependent state (isMobile, sidebarExpanded) to default boolean values and moving the window.innerWidth evaluation to a client-side useEffect.
+- Fixed the production review link generation bug where the handleCopyLink and CopyButton tools were generating URLs hardcoded to http://localhost:3000. They now correctly utilize window.location.origin inside client components.
+- Removed hardcoded STATS and DEFAULT_SERVICES_DATA from the public landing page components (About and Services).
+- Configured getServerPublicSiteContent in lib/services/server-public-data.ts to dynamically fetch this data from the SiteContent table and cascade it through LandingWrapper as props, allowing complete data-driven control over the public landing page without touching code.
+
 ## [2026-06-14]
 
 ### Review Code System + Codebase Refactor
+
+- **Operations & Deployment Docs Update:**
+  - Fully rewrote the `docs/vps-deployment-guide.md` and `deployment-guide.md` artifacts to provide a clean, secure, start-to-finish **root-only** deployment guide targeted at IP `159.89.193.92` to resolve SSH lockout issues, configuring swap, UFW, Docker containers, Next.js environment, database migrations, and a Caddy reverse proxy directly mapped to the server's IP address (eliminating the need to append `:3000` to URLs).
+
+
 
 - **Full-Stack Refactor - Public Collection Media System:**
   - Migrated the `StoryLoopLogo` Prisma database schema to a new, flexible `PublicCollection` table. It now supports categorized assignments using the `PublicSection` enum (`ABOUT`, `EXPERTISE`, `HERO`) alongside `type` tracking (images/videos).
@@ -1288,5 +1315,11 @@ px next build � zero errors
 [2026-06-14 14:56:24] FEAT: Added Up/Down reorder buttons to Admin Vault rows (desktop + mobile). Fixed isFirst/isLast to respect global order even when filtered. Fixed SSR public data sort order to use sortOrder ASC instead of createdAt DESC.
 
 [2026-06-14 15:27:57] FEAT: Implemented complete admin verification and forget password flow. Added isVerified, resetToken columns to schema. Created verify-email, forgot-password, and reset-password API routes. Wired mailer to send verification/reset emails. Gated proxy.ts with admin_verified cookie and added VerifyPending page. Wired Profile change password to API. Removed Share Experience button from feedback section.
-\
-\
+
+[2026-06-14 23:17:00] FEAT: Integrated TikTok OAuth & Creator Analytics Dashboard. Added the TiktokIntegration model to schema.prisma, synchronized database tables via Prisma CLI, created auth redirection and callback API endpoints, implemented auto-refresh token utilities, added a dedicated TikTok Dashboard link to the admin sidebar, and created a fully responsive metrics dashboard featuring custom interactive SVG charts and video performance tables. Verified build successfully.
+
+[2026-06-14 23:29:00] DOCS: Created a comprehensive step-by-step integration guide for the TikTok Developer Portal setup under docs/tiktok-integration-guide.md.
+
+
+
+

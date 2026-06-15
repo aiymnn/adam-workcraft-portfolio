@@ -1,270 +1,280 @@
-# The Ultimate A-to-Z VPS Deployment Guide (Docker + Next.js + Postgres)
+# Root-Only VPS Deployment Guide (No-Domain / IP-Based Setup)
 
-This is the definitive, step-by-step masterclass for taking a completely blank VPS and turning it into a fortress of security, performance, and stability for your Adam Workcraft application.
-
-We will use **Ubuntu 22.04 LTS** (or 24.04 LTS) as the operating system, as it is the industry standard for web hosting.
+This is the definitive, start-to-finish guide to configure your Ubuntu VPS and deploy your Next.js + PostgreSQL application using Docker compose. This setup runs entirely under the `root` user and is configured to run on your IP address (`159.89.193.92`) without a port in the URL.
 
 ---
 
-## Phase 1: Server Foundation & Security (A to Z)
+## Step 1: System Update & Base Configurations
 
-When you first purchase a VPS, it is vulnerable and raw. We must secure it before installing anything.
-
-### 1. The First Login & System Update
-Log into your server via your terminal using the Root user and IP address provided by your hosting company:
+Log into your server via your terminal:
 ```bash
-ssh root@your_server_ip
-```
-Immediately update all the pre-installed software to patch any known security vulnerabilities:
-```bash
-apt update && apt upgrade -y
+ssh root@159.89.193.92
 ```
 
-### 2. Create a Non-Root User
-Running applications as `root` is extremely dangerous. We will create a dedicated user named `adam`.
+### 1. Update Server Packages
+Immediately pull the latest security patches and updates:
 ```bash
-adduser adam
-```
-*(Enter a strong password and skip the personal details by pressing Enter).*
-
-Now, grant this user `sudo` (administrative) privileges:
-```bash
-usermod -aG sudo adam
+sudo apt update && sudo apt upgrade -y
 ```
 
-### 3. Add Swap Space (Recommended Safety Net)
-Since you are using a 4GB RAM VPS, Next.js will build comfortably without running out of memory. However, it is a Linux best practice to always have a Swap File. If an unexpected traffic spike occurs, this acts as emergency backup RAM so your server never crashes.
+### 2. Create Swap Space (Emergency RAM)
+Building Next.js inside a Docker container is memory-intensive. Setting up 2GB of virtual swap memory acts as a safety net so your build process does not crash or lock up the VPS.
 ```bash
-# Create a 2GB swap file
-fallocate -l 2G /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
+# Create a 2GB empty swap file
+sudo fallocate -l 2G /swapfile
 
-# Make it permanent so it survives server reboots
-echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
+# Set secure file permissions (root only)
+sudo chmod 600 /swapfile
+
+# Format the file as swap space
+sudo mkswap /swapfile
+
+# Enable the swap space
+sudo swapon /swapfile
+
+# Register it permanently so it survives server reboots
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-### 4. Set Up the Firewall (UFW)
-A firewall blocks all incoming traffic except what you explicitly allow. 
+### 3. Setup the Firewall (UFW)
+A firewall blocks external access to unauthorized ports. We must allow SSH (`22`), standard HTTP (`80`), and standard HTTPS (`443`).
 
-> **CRITICAL WARNING**: The most common mistake in server hosting is forgetting to allow SSH connections. If you turn on the firewall without allowing SSH (Port 22), **you will lock yourself out of your server permanently.**
+> [!IMPORTANT]
+> **CRITICAL WARNING:** You must run `sudo ufw allow 22/tcp` before enabling the firewall. If you forget to allow port 22, you will lock yourself out of SSH!
 
-Run these exact commands in order:
 ```bash
-# 1. ALLOW SSH FIRST (Critical!)
-ufw allow OpenSSH
+# 1. Allow SSH (Port 22)
+sudo ufw allow 22/tcp
 
-# 2. Allow your application port (Port 3000)
-ufw allow 3000/tcp
+# 2. Allow HTTP & HTTPS (For web traffic and Caddy reverse proxy)
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
 
-# 3. Allow HTTP and HTTPS (For your future domain setup)
-ufw allow 80/tcp
-ufw allow 443/tcp
-
-# 4. Enable the firewall
-ufw enable
+# 3. Turn on the firewall
+sudo ufw enable
 ```
-*(Press `y` when it warns you about disrupting SSH).*
-
-### 5. Switch to Your New User
-Log out of `root` and log back in as your new, secure user:
-```bash
-exit
-ssh adam@your_server_ip
-```
+*(Press `y` and then `Enter` when prompted).*
 
 ---
 
-## Phase 2: Installing Docker & Git
+## Step 2: Install Git, Docker, and Caddy
 
-Docker isolates your App and Database inside "Containers". This means you never have to install Node.js, Postgres, or messy dependencies directly on your server. If a container crashes, it restarts automatically. If you move to a new server, you just copy the Docker files.
+We will install all our required system dependencies now:
+- **Git**: To clone the project repository.
+- **Docker**: To run the Next.js app and Postgres database.
+- **Caddy**: To reverse proxy the IP address (`http://159.89.193.92`) to Next.js on port `3000` (so you don't need to type the port in the browser).
 
-### 1. Install Git
 ```bash
+# 1. Install Git
 sudo apt install git -y
-```
 
-### 2. Install Docker & Docker Compose
-We will use Docker's official automated installation script:
-```bash
-# Download and run the installation script
+# 2. Download and run the official Docker automated installation script
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
-# Enable Docker to automatically start if the server reboots
+# 3. Enable the Docker service to run automatically on system boot
 sudo systemctl enable docker
 sudo systemctl start docker
-```
 
-### 3. Grant Docker Permissions
-By default, only `root` can run Docker commands. We will add your `adam` user to the docker group so you don't have to type `sudo docker` every time:
-```bash
-sudo usermod -aG docker $USER
-```
-> **IMPORTANT:** Type `exit` to log out of the server completely. Then `ssh adam@your_server_ip` to log back in. The permissions will now be active.
-
----
-
-## Phase 3: Project Setup & Database Configuration
-
-### 1. Download Your Code
-Navigate to your home directory and clone your repository (or upload it via SFTP):
-```bash
-cd ~
-git clone <YOUR_REPOSITORY_URL> adam-workcraft
-cd adam-workcraft
-```
-
-### 2. Configure the Database and App Environment
-Docker relies on a `.env` file to know what passwords to use when creating the database.
-```bash
-cp .env.example .env.local
-nano .env.local
-```
-
-Inside the file, configure these essential sections:
-
-**The Database Passwords:**
-```env
-# These tell Docker how to create the raw PostgreSQL Database
-DB_NAME=adam-workcraft
-DB_USER=dbuser
-DB_PASSWORD=your_insanely_secure_database_password
-```
-
-**The App Connections:**
-```env
-# These tell Next.js how to connect to the database.
-# Notice the host is 'db' instead of 'localhost'. Docker creates an internal 
-# network, and 'db' is the name of the Postgres container!
-DATABASE_URL=postgresql://dbuser:your_insanely_secure_database_password@db:5432/adam-workcraft?schema=public
-DIRECT_URL=postgresql://dbuser:your_insanely_secure_database_password@db:5432/adam-workcraft?schema=public
-```
-
-**App Security:**
-```env
-AUTH_SECRET=a_very_long_random_string_of_text
-NEXT_PUBLIC_SITE_URL=http://your_server_ip:3000
-AUTH_URL=http://your_server_ip:3000
-```
-*(Press `Ctrl+X`, then `Y`, then `Enter` to save and exit).*
-
----
-
-## Phase 4: Deploying the Database and App (A to Z)
-
-Your project contains `docker-compose.production.yml`. Think of this file as the master blueprint. It tells Docker: *"Download Postgres, set the passwords from `.env.local`, start the database, then build the Next.js app, and link them together."*
-
-### 1. Build and Start the Containers
-Run this command to ignite the entire infrastructure in the background (`-d` means detached):
-```bash
-docker compose -f docker-compose.production.yml up -d --build
-```
-*(This will take a few minutes. It is downloading the OS, Postgres, Node.js, and compiling your code).*
-
-### 2. Initialize the Database Tables
-Right now, the PostgreSQL database is running, but it has no tables. We need to push your Prisma schema into it:
-```bash
-docker exec -it adam-workcraft-app npx prisma db push
-```
-*(This command acts as a bridge: It reaches inside the running Next.js container (`adam-workcraft-app`) and tells it to execute Prisma's database setup command against the running database).*
-
-### 3. Verify Health
-Check if the containers are running:
-```bash
-docker ps
-```
-Check the Next.js application logs to ensure it connected to the database successfully:
-```bash
-docker logs adam-workcraft-app
-```
-
-**🎉 Phase 4 Complete!**
-You can now visit your application by going to `http://your_server_ip:3000` in your web browser.
-
----
-
-## Phase 5: Domain Setup & SSL (Do this later)
-
-Once you purchase a domain (e.g., `adamworkcraft.com`), follow these steps to secure it and remove the `:3000` port from the URL.
-
-We will use **Caddy** as a reverse proxy. Caddy automatically generates, configures, and renews free SSL certificates (HTTPS) for you.
-
-### 1. Point Your Domain (DNS)
-Go to your domain registrar (Namecheap, Cloudflare, etc.) and add an **A Record**:
-- **Type**: A
-- **Name**: `@` (or leave blank)
-- **Value**: `Your VPS IP Address`
-
-### 2. Install Caddy
-Run these commands to install Caddy:
-```bash
+# 4. Install Caddy Reverse Proxy
 sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
 sudo apt update
-sudo apt install caddy
+sudo apt install caddy -y
 ```
 
-### 3. Configure Caddy
+Verify that they are installed correctly:
+```bash
+docker --version
+docker compose version
+caddy version
+```
+
+---
+
+## Step 3: Clone Project & Set Up Environment
+
+### 1. Clone Your Codebase
+We will store the project inside `/root/adam-workcraft`:
+```bash
+cd /root
+git clone <YOUR_GIT_REPOSITORY_URL> adam-workcraft
+cd adam-workcraft
+```
+
+### 2. Configure Environment Variables
+Copy the example environment template to `.env` (Docker Compose reads `.env` automatically to set up the container configuration):
+```bash
+cp .env.example .env
+nano .env
+```
+
+Modify the parameters in `nano` to match your IP-based production environment (notice there is no `:3000` port in the URLs):
+```env
+# ==========================================
+# Database Configuration
+# ==========================================
+# Make sure DB_HOST is set to 'db' (the docker-compose service name)
+DB_HOST=db
+DB_PORT=5432
+DB_NAME=adam-workcraft
+DB_USER=dbuser
+DB_PASSWORD=YOUR_INSANELY_SECURE_PASSWORD
+
+# Prisma URLs connecting internally inside the Docker network
+DATABASE_URL=postgresql://dbuser:YOUR_INSANELY_SECURE_PASSWORD@db:5432/adam-workcraft?schema=public
+DIRECT_URL=postgresql://dbuser:YOUR_INSANELY_SECURE_PASSWORD@db:5432/adam-workcraft?schema=public
+
+# ==========================================
+# Next Auth Configuration
+# ==========================================
+# Generate a secret by running 'openssl rand -base64 32' on your local command line and pasting it here:
+AUTH_SECRET=YOUR_GENERATED_AUTH_SECRET
+# Since you do not have a domain yet, use http://159.89.193.92 (no port!)
+AUTH_URL=http://159.89.193.92
+
+# ==========================================
+# Admin Credentials Bootstrap
+# ==========================================
+# These credentials will be used to log into the admin dashboard on first login
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=YOUR_STRONG_ADMIN_PASSWORD
+ADMIN_FULL_NAME=Adam Workcraft
+ADMIN_EMAIL=aizzdevop@gmail.com
+
+# ==========================================
+# Google Drive Media Configuration
+# ==========================================
+GOOGLE_DRIVE_AUTH_MODE=service-account
+GOOGLE_DRIVE_FOLDER_ID=YOUR_GOOGLE_DRIVE_FOLDER_ID
+# Copy the entire JSON credentials from your Google Cloud Console service account key, encode it to base64, and paste it here:
+GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON_BASE64=YOUR_BASE64_SERVICE_ACCOUNT_JSON
+
+# ==========================================
+# Nodemailer SMTP Configuration
+# ==========================================
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=aizzdevop@gmail.com
+SMTP_PASS=YOUR_GMAIL_APP_PASSWORD
+CONTACT_EMAIL=aizzdevop@gmail.com
+
+# ==========================================
+# Next.js Settings
+# ==========================================
+# Use http://159.89.193.92 (no port!) since Caddy will proxy it
+NEXT_PUBLIC_SITE_URL=http://159.89.193.92
+NODE_ENV=production
+```
+*(Press `Ctrl+X`, then press `Y` and `Enter` to save the file and exit).*
+
+---
+
+## Step 4: Configure Caddy Reverse Proxy
+
+We configure Caddy to listen to port 80 on your IP `159.89.193.92` and send all traffic to port `3000` (Next.js).
+
+### 1. Edit Caddyfile
 Open the Caddy configuration file:
 ```bash
 sudo nano /etc/caddy/Caddyfile
 ```
 
-Delete everything in the file and replace it with this (change `yourdomain.com` to your actual domain):
+Delete everything in the file and replace it with:
 ```text
-yourdomain.com {
+http://159.89.193.92 {
     reverse_proxy localhost:3000
-}
-
-www.yourdomain.com {
-    redir https://yourdomain.com{uri}
 }
 ```
 *(Press `Ctrl+X`, then `Y`, then `Enter` to save).*
 
-### 4. Update Your App Environment
-Now that you have a domain, tell Next.js about it:
-```bash
-nano .env.local
-```
-Change the URLs to your real domain (and use `https`):
-```env
-NEXT_PUBLIC_SITE_URL=https://yourdomain.com
-AUTH_URL=https://yourdomain.com
-```
-
-### 5. Restart Services
-Restart Caddy to apply the domain, and restart Docker to apply the new `.env` variables:
+### 2. Restart Caddy
+Apply the changes:
 ```bash
 sudo systemctl restart caddy
-docker compose -f docker-compose.production.yml restart
 ```
-
-Wait a few minutes for DNS to propagate. If you visit `https://yourdomain.com`, Caddy will automatically secure it with a green padlock (SSL) and route the traffic silently into your Next.js Docker container!
 
 ---
 
-## Docker Master Cheatsheet
+## Step 5: Run the Application Stack
 
-If you ever need to manage your server in the future, save these commands:
+### 1. Build and Run Containers
+Compile your Next.js production image and start both the Next.js app and the Postgres database:
+```bash
+sudo docker compose -f docker-compose.production.yml up -d --build
+```
+*(This downloads Postgres, installs npm packages, and builds the Next.js production server. This will take a few minutes for the first run).*
 
-- **Update your app after changing code:**
+### 2. Initialize the Database Schema
+Once both containers are running, push your database tables (defined in Prisma) to the PostgreSQL database inside the container:
+```bash
+sudo docker exec -it adam-workcraft-app npx prisma db push
+```
+
+### 3. Verify Health
+Verify both containers are running properly:
+```bash
+sudo docker ps
+```
+
+You can inspect the live console outputs of the app to confirm successful database connectivity:
+```bash
+sudo docker logs -f adam-workcraft-app
+```
+
+**🎉 Setup Complete!**
+Open your web browser and navigate to:
+`http://159.89.193.92`
+
+Your site is now fully running without needing any port number in the URL! You can log into the admin panel at `http://159.89.193.92/admin` using your bootstrap credentials.
+
+---
+
+## Step 6: Adding a Domain & SSL (Do this later)
+
+Once you register a domain name (e.g. `yourdomain.com`), updating it is extremely simple:
+
+1. Add an **A Record** on your domain registrar pointing `yourdomain.com` (and optionally `www`) to `159.89.193.92`.
+2. Edit `/root/adam-workcraft/.env`:
+   Change the URLs to use `https` and your domain:
+   ```env
+   AUTH_URL=https://yourdomain.com
+   NEXT_PUBLIC_SITE_URL=https://yourdomain.com
+   ```
+3. Edit `/etc/caddy/Caddyfile` to use your domain:
+   ```text
+   yourdomain.com {
+       reverse_proxy localhost:3000
+   }
+
+   www.yourdomain.com {
+       redir https://yourdomain.com{uri}
+   }
+   ```
+4. Restart Caddy and your Docker containers to apply:
+   ```bash
+   sudo systemctl restart caddy
+   sudo docker compose -f docker-compose.production.yml restart
+   ```
+
+Caddy will automatically fetch Let's Encrypt certificates and set up secure SSL. Now you can access your website securely at `https://yourdomain.com`!
+
+---
+
+## Docker Cheatsheet
+
+- **Update code:**
   ```bash
+  cd /root/adam-workcraft
   git pull
-  docker compose -f docker-compose.production.yml up -d --build
+  sudo docker compose -f docker-compose.production.yml up -d --build
   ```
-- **View live server logs:**
+- **Stop website:**
   ```bash
-  docker logs -f adam-workcraft-app
+  sudo docker compose -f docker-compose.production.yml down
   ```
-- **Stop everything:**
+- **DB CLI shell access:**
   ```bash
-  docker compose -f docker-compose.production.yml down
-  ```
-- **Access the raw PostgreSQL Database Shell:**
-  ```bash
-  docker exec -it adam-workcraft-db psql -U dbuser -d adam-workcraft
+  sudo docker exec -it adam-workcraft-db psql -U dbuser -d adam-workcraft
   ```
