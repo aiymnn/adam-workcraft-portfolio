@@ -140,7 +140,7 @@ export default function Services({ initialMediaItems, servicesData, onSelectCate
                   className="bg-media-item absolute inset-0 w-full h-full object-cover opacity-30 md:opacity-0 transition-all duration-1000 ease-out md:scale-105 md:group-hover:scale-100 md:group-hover:opacity-60"
                 />
               ) : (
-                service.images?.map((img, i) => (
+                service.images?.map((img: string, i: number) => (
                   <Image
                     key={img}
                     src={img}
