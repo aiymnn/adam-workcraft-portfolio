@@ -152,7 +152,7 @@ export default function About({ initialMediaItems, stats, onInitialDataReady }: 
                 />
               </div>
               <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-[var(--text-dim)] md:text-xs">
-                {t.about.stats[stat.key]}
+                {t.about.stats[stat.key as keyof typeof t.about.stats] || stat.label}
               </p>
             </div>
           ))}
