@@ -162,7 +162,7 @@ export default function Services({ initialMediaItems, servicesData, onSelectCate
             <div className="relative z-30 p-8 md:p-12 lg:p-16 transition-transform duration-700 ease-out md:translate-y-8 md:group-hover:translate-y-0">
               <div className="flex items-end justify-between md:block">
                 <h3 className="text-5xl font-bold tracking-tighter text-stone-200 transition-colors duration-500 md:text-stone-600 md:group-hover:text-white sm:text-6xl md:text-7xl lg:text-8xl">
-                  {t.services[service.key]}
+                  {t.services[service.key as keyof typeof t.services] || service.key}
                 </h3>
                 {/* Mobile-only arrow */}
                 <span className="mb-2 text-xl text-amber-500 md:hidden">&rarr;</span>
