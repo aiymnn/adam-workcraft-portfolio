@@ -27,6 +27,8 @@ interface LandingWrapperProps {
   servicesMedia: any[];
   vaults: PublicVaultCollection[];
   reviews: PublicReviewItem[];
+  stats: any;
+  servicesData: any;
 }
 
 export default function LandingWrapper({
@@ -35,6 +37,8 @@ export default function LandingWrapper({
   servicesMedia,
   vaults,
   reviews,
+  stats,
+  servicesData,
 }: LandingWrapperProps) {
   const mainRef = useRef<HTMLDivElement>(null);
   const visitTrackedRef = useRef(false);
@@ -117,10 +121,12 @@ export default function LandingWrapper({
         <Hero profile={profile} />
         <About
           initialMediaItems={aboutMedia}
+          stats={stats}
           onInitialDataReady={() => handleSectionDataReady('about')}
         />
         <Services
           initialMediaItems={servicesMedia}
+          servicesData={servicesData}
           onInitialDataReady={() => handleSectionDataReady('services')}
         />
         <Process />

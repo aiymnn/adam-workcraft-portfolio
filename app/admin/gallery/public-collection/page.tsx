@@ -107,6 +107,23 @@ function AddItemDialog({ open, saving, existingItems, onSave, onClose }: AddItem
       }
     }
 
+    if (section === 'about') {
+      const hasImages = mediaFiles.some(f => f.type.startsWith('image/'));
+      if (hasImages) {
+        toast.error('About section only supports video uploads.');
+        return;
+      }
+      
+      const existingVideos = existingItems.filter(i => i.section === 'about' && i.type === 'video').length;
+      const newVideos = mediaFiles.filter(f => f.type.startsWith('video/')).length;
+      const pendingVideos = pendingEntries.filter(e => e.file.type.startsWith('video/')).length;
+      
+      if (existingVideos + pendingVideos + newVideos > 5) {
+        toast.error('About section can only have a maximum of 5 videos.');
+        return;
+      }
+    }
+
     setPendingFromFiles(mediaFiles);
     if (rejectedCount > 0) {
       toast.info(`${mediaFiles.length} media queued. ${rejectedCount} file(s) skipped.`);
@@ -138,7 +155,7 @@ function AddItemDialog({ open, saving, existingItems, onSave, onClose }: AddItem
         </div>
 
         <div className="scrollbar-hidden flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
-          <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileInput} />
+          <input ref={fileInputRef} type="file" accept={section === 'about' ? 'video/*' : 'image/*,video/*'} multiple className="hidden" onChange={handleFileInput} />
           
           <div className="space-y-2">
             <label className="text-xs font-medium text-[var(--text-dim)]">Assign to Section</label>
@@ -152,7 +169,7 @@ function AddItemDialog({ open, saving, existingItems, onSave, onClose }: AddItem
             </select>
           </div>
 
-          <MediaDropzone title="Drop media here" hint="Images or Videos" icon="image" onDrop={(e) => { e.preventDefault(); queueFiles(Array.from(e.dataTransfer.files || [])); }} onClick={() => fileInputRef.current?.click()} className="mb-3" />
+          <MediaDropzone title="Drop media here" hint={section === 'about' ? 'Videos only' : 'Images or Videos'} icon="image" onDrop={(e) => { e.preventDefault(); queueFiles(Array.from(e.dataTransfer.files || [])); }} onClick={() => fileInputRef.current?.click()} className="mb-3" />
 
           <div className="scrollbar-hidden max-h-64 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-start)] p-2">
             {pendingEntries.length === 0 ? <p className="py-6 text-center text-xs text-[var(--text-dim)]">No media queued.</p> : pendingEntries.map((entry) => (
@@ -396,11 +413,7 @@ export default function PublicCollectionPage() {
                               ↓
                             </button>
                           </div>
-                          {deleteConfirm === item.id ? (
-                            <button onClick={() => handleDelete(item.id)} className="rounded-md border border-red-900/50 bg-red-900/30 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-900/45">Confirm Delete</button>
-                          ) : (
-                            <button onClick={() => setDeleteConfirm(item.id)} className="rounded-md border border-[var(--border)] bg-[var(--button)] px-3 py-1 text-xs font-medium hover:bg-red-900/35 hover:text-red-300">Delete</button>
-                          )}
+                          <button onClick={() => setDeleteConfirm(item.id)} className="rounded-md border border-[var(--border)] bg-[var(--button)] px-3 py-1 text-xs font-medium hover:bg-red-900/35 hover:text-red-300">Delete</button>
                         </div>
                       </div>
                     ))}
@@ -412,6 +425,37 @@ export default function PublicCollectionPage() {
           </AdminPageShell>
         </main>
       </div>
+
+      {deleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
+          onClick={() => setDeleteConfirm(null)}
+        >
+          <div
+            className="w-full rounded-t-xl border border-[var(--border)] bg-[var(--bg-mid)] p-5 shadow-2xl sm:mx-4 sm:max-w-xs sm:rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-center text-sm font-medium text-[var(--text)]">
+              Are you sure you want to delete this media?
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--button)] px-3 py-2 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--button-hover)]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AddItemDialog open={isAddModalOpen} saving={isSavingAdd} existingItems={items} onSave={handleSaveAdd} onClose={() => setIsAddModalOpen(false)} />
     </div>
   );
