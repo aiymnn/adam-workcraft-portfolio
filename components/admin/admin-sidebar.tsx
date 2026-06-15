@@ -78,6 +78,7 @@ const MAIN_ITEMS: SidebarItem[] = [
     icon: ShareIcon,
     children: [
       { id: 'all', label: 'All Links', href: '/admin/social' },
+      { id: 'tiktok-dashboard', label: 'TikTok Dashboard', href: '/admin/social/tiktok' },
       ...SOCIAL_PLATFORMS.map((p) => ({
         id: p.id as SocialPlatformId,
         label: p.label,

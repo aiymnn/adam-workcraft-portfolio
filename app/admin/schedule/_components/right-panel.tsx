@@ -126,7 +126,7 @@ const RightPanel = memo(function RightPanel({
                     <CopyButton label="Copy" value={b.reviewCode} copiedLabel="Copied!" />
                     <CopyButton
                       label="Send Email"
-                      value={`Your review code for ${b.name}: ${b.reviewCode}\n\nSubmit your review at: ${typeof window !== 'undefined' ? window.location.origin : ''}/submit-review`}
+                      value={`Your review code for ${b.name}: ${b.reviewCode}\n\nSubmit your review at: ${typeof window !== 'undefined' ? window.location.origin : ''}/submit-review?code=${b.reviewCode}`}
                       copiedLabel="Email copied!"
                     />
                   </div>

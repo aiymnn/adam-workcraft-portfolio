@@ -2,7 +2,7 @@ import { Input } from '@/components/ui/input';
 
 interface AdminSummaryItem {
   label: string;
-  value: number;
+  value: string | number;
 }
 
 interface AdminSummaryGridProps {

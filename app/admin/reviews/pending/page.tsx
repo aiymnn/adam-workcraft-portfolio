@@ -108,7 +108,8 @@ export default function PendingReviewsPage() {
   }, [toast]);
 
   const handleCopyLink = useCallback((code: string) => {
-    const link = `${SITE_URL}/submit-review?code=${encodeURIComponent(code)}`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : SITE_URL;
+    const link = `${origin}/submit-review?code=${encodeURIComponent(code)}`;
     void navigator.clipboard.writeText(link);
     toast.success('Review link copied');
   }, [toast]);

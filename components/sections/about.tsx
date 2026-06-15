@@ -9,7 +9,7 @@ import { useLanguage } from '@/context/language-context';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const STATS = [
+const DEFAULT_STATS = [
   { value: 45, key: 'weddings' as const },
   { value: 28, key: 'events' as const },
   { value: 4, key: 'experience' as const },
@@ -24,10 +24,12 @@ import { fetchPublicCollection } from '@/lib/services/public-content';
 
 interface AboutProps {
   initialMediaItems: any[];
+  stats?: any;
   onInitialDataReady?: () => void;
 }
 
-export default function About({ initialMediaItems, onInitialDataReady }: AboutProps) {
+export default function About({ initialMediaItems, stats, onInitialDataReady }: AboutProps) {
+  const displayStats = stats || DEFAULT_STATS;
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -136,7 +138,7 @@ export default function About({ initialMediaItems, onInitialDataReady }: AboutPr
         </p>
 
         <div className="grid grid-cols-2 gap-4 pt-4 md:grid-cols-4 md:pt-6">
-          {STATS.map((stat, i) => (
+          {displayStats.map((stat: any, i: number) => (
             <div
               key={stat.key}
               ref={(el) => { statRefs.current[i] = el; }}

@@ -98,3 +98,15 @@ export async function getServerPublicReviews(limit = 3): Promise<PublicReviewIte
     return [];
   }
 }
+
+export async function getServerPublicSiteContent(key: string, defaultValue: any = null) {
+  try {
+    const row = await db.siteContent.findUnique({
+      where: { key },
+    });
+    return row ? row.value : defaultValue;
+  } catch (error) {
+    console.error(`getServerPublicSiteContent error for key ${key}:`, error);
+    return defaultValue;
+  }
+}

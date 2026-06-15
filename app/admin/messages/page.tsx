@@ -152,10 +152,17 @@ export default function MessagesPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [sidebarExpanded, setSidebarExpanded] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : true));
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
+  const [isMobile, setIsMobile] = useState(false);
   const manualToggleRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setSidebarExpanded(window.innerWidth >= 1280);
+      setIsMobile(window.innerWidth < 1024);
+    }
+  }, []);
 
   const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState<AdminContactMessageItem[]>([]);
